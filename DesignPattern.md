@@ -1033,6 +1033,81 @@ Prototype 模式将克隆的过程委派给被克隆的实际对象。该模式�
 
 单例模式保证一个类只有一个实例，并提供一个访问该实例的全局节点。
 
+### Intent
+
+主要目的是为了保护某些占用共享资源的重要对象。一般情况下构造这些对象的代价都较高。
+
+所有单例的实现都包括下面两个步骤：
+
+1. 私有化默认构造函数，禁止在单例 class 对象之外使用 new 运算符构造该对象；
+2. 提供一个静态构造方法，并将其保存到一个静态成员中，后续所有调用该函数的行为都只会获取到该缓存对象。（<font style='color:green'>通常这个步骤会结合编程语言的相关特性，比如在 Java 中会考虑并发操作，从而保证单例只会被初始化一次</font>）
+
+
+
+### Example
+
+以 Java 语言为例，这里仅列出一种单例的实现方式，更多信息可自行查阅相关资料：
+
+借助 Java 静态类初始化过程中加锁的特点来构造单例：
+
+```java
+public final class Singleton {
+
+    private Singleton() {
+    }
+
+    private static class LazyInitialization {
+        private static Singleton instance = null;
+        static {
+            instance = new Singleton();
+        }
+    }
+    
+    public static Singleton getInstance() {
+        return LazyInitialization.instance;
+    }
+    
+}
+```
+
+测试类：
+
+```java
+public class SingletonTestClient {
+    public static void main(String[] args) throws InterruptedException {
+        ExecutorService service = Executors.newFixedThreadPool(100);
+        for (int i = 0; i < 100; i++) {
+            service.execute(() -> {
+                System.out.println(Singleton.getInstance());
+            });
+        }
+
+        TimeUnit.SECONDS.sleep(3);
+    }
+}
+```
+
+期望输出：
+
+```
+io.naivekyo.Singleton.Singleton@10351c94
+io.naivekyo.Singleton.Singleton@10351c94
+io.naivekyo.Singleton.Singleton@10351c94
+// ..................
+```
+
+### Rules of thumb
+
+- Facade 类通常可以转换为 Singleton 类，大部分情况下一个 Facade 类就足够了；
+- 如果可以将对象的所有共享状态简化为一个享元对象，那么 Flyweight 和 Singleton 就类似了，但是这种模式有本质上的不同之处：
+  - 只有一个单例实体，但是享元类可以有多个实体，各个实体内部的状态也不一样；
+  - 单例对象可以是可变的，但是享元对象是不可变的；
+- 抽象工厂、生成器、原型都可以通过单例实现。
+
+
+
+
+
 
 
 # Adapter
