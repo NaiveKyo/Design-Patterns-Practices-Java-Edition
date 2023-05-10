@@ -1,4 +1,4 @@
-package io.naivekyo.Singleton;
+package io.naivekyo.creational.Singleton;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
