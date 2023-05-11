@@ -1,7 +1,7 @@
-package io.naivekyo.creational.Bridge.abstraction.impl;
+package io.naivekyo.structural.Bridge.abstraction.impl;
 
-import io.naivekyo.creational.Bridge.abstraction.Switch;
-import io.naivekyo.creational.Bridge.implementation.SwitchImplementation;
+import io.naivekyo.structural.Bridge.abstraction.Switch;
+import io.naivekyo.structural.Bridge.implementation.SwitchImplementation;
 
 public class SimpleSwitch extends Switch {
 

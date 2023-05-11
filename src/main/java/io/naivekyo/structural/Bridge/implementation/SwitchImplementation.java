@@ -1,4 +1,4 @@
-package io.naivekyo.creational.Bridge.implementation;
+package io.naivekyo.structural.Bridge.implementation;
 
 /**
  * 开关实现的抽象

@@ -1,10 +1,10 @@
-package io.naivekyo.creational.Bridge;
+package io.naivekyo.structural.Bridge;
 
-import io.naivekyo.creational.Bridge.abstraction.Switch;
-import io.naivekyo.creational.Bridge.abstraction.impl.DimmerSwitch;
-import io.naivekyo.creational.Bridge.abstraction.impl.SimpleSwitch;
-import io.naivekyo.creational.Bridge.implementation.impl.ElectricLampSwitch;
-import io.naivekyo.creational.Bridge.implementation.impl.TVSwitch;
+import io.naivekyo.structural.Bridge.abstraction.Switch;
+import io.naivekyo.structural.Bridge.abstraction.impl.DimmerSwitch;
+import io.naivekyo.structural.Bridge.abstraction.impl.SimpleSwitch;
+import io.naivekyo.structural.Bridge.implementation.impl.ElectricLampSwitch;
+import io.naivekyo.structural.Bridge.implementation.impl.TVSwitch;
 
 public class BridgeTestClient {
     public static void main(String[] args) {

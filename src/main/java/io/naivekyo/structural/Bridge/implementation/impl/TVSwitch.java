@@ -1,6 +1,6 @@
-package io.naivekyo.creational.Bridge.implementation.impl;
+package io.naivekyo.structural.Bridge.implementation.impl;
 
-import io.naivekyo.creational.Bridge.implementation.SwitchImplementation;
+import io.naivekyo.structural.Bridge.implementation.SwitchImplementation;
 
 /**
  * 电视开关只有两种状态: 打开或者关闭

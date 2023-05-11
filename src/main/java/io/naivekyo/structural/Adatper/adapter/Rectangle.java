@@ -1,7 +1,7 @@
-package io.naivekyo.creational.Adatper.adapter;
+package io.naivekyo.structural.Adatper.adapter;
 
-import io.naivekyo.creational.Adatper.Shape;
-import io.naivekyo.creational.Adatper.legacy.LegacyRectangle;
+import io.naivekyo.structural.Adatper.Shape;
+import io.naivekyo.structural.Adatper.legacy.LegacyRectangle;
 
 /**
  * 新的 Rectangle class

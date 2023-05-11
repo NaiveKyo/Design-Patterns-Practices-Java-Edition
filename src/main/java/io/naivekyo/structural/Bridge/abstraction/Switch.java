@@ -1,6 +1,6 @@
-package io.naivekyo.creational.Bridge.abstraction;
+package io.naivekyo.structural.Bridge.abstraction;
 
-import io.naivekyo.creational.Bridge.implementation.SwitchImplementation;
+import io.naivekyo.structural.Bridge.implementation.SwitchImplementation;
 
 /**
  * 开关的抽象非常简单, 只有两个功能: 开/关

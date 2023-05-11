@@ -1,4 +1,4 @@
-package io.naivekyo.creational.Adatper.legacy;
+package io.naivekyo.structural.Adatper.legacy;
 
 public class LegacyRectangle {
     

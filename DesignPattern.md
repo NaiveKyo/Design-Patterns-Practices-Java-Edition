@@ -1110,23 +1110,23 @@ io.naivekyo.Singleton.Singleton@10351c94
 
 
 
-# Adapter
+# Structural Patterns
 
-参考：
+结构型设计模式将对象和类组装成更大的结构，同时保证结构的灵活和高效。
 
-- https://refactoringguru.cn/design-patterns/adapter
+## Adapter
 
-## Intent
+### Intent
 
 - 将某个类提供的接口转换为其他客户端接口所期望的接口；适配器就是为了让两个不兼容的接口能够在一起工作而提出的设计模式；
 - 将一个已经存在的 class 包装为一个新的接口；
 - 将一个旧的 component 接入到新的系统中；
 
-## Problem
+### Problem
 
 一个 "off the shelf"（现成的）组件提供的接口需要重复使用，但是它和正在开发的新系统的某些设计理念或者架构不兼容。
 
-## Discussion
+### Discussion
 
 Reuse 一直是一个痛苦的、不容易理解的，其中一个原因是设计新东西的同时又要重复使用旧的东西。新旧事物之间总有些不太对劲的地方。
 
@@ -1136,11 +1136,11 @@ Adapter 设计模式通过提供一个中间层抽象，比如 translates or map
 
 Adapter 为一个已经存在的 class 提供 wrapper 或者 modifier，也就是这个 class 的 different 或者 translate view；
 
-## Structure
+### Structure
 
 考虑这样的场景，一个旧的 Rectangle component 的 display 方法接受参数为 `x, y, w, h` 即左上角坐标和宽高，但是现在 client 期望传入左上角坐标和右下角坐标，此时可以通过为旧的 Rectangle 组件添加一个 Adapter Object 来解决不协调问题。
 
-## Example
+### Example
 
 以 Structure 中例子，假设我们现在要构造一套新的 Shape#dispaly API，可以这样：
 
@@ -1204,7 +1204,7 @@ call adapter' display method.
 this is legacy rectangle: (x, y, w, h) -> (1, 2, 2, 2)
 ```
 
-## Rules of thumb
+### Rules of thumb
 
 Adapter 让某些事物在它们被设计完成之后进行工作，而 Bridge 则让它们提前工作；
 
@@ -1221,23 +1221,19 @@ Adapter 用于更改一个已存在的对象的接口。Decorator 在不改变�
 
 Facade 定义了一个新的接口，而 Adapter 则复用一个旧的接口。请记住，Adapter 使两个现有接口一起工作，而不是定义一个全新的接口。
 
-# Bridge
+## Bridge
 
-参考：
-
-- https://refactoringguru.cn/design-patterns/bridge
-
-## Intent
+### Intent
 
 - 将 abstraction 和该抽象的 implementation 解耦，这样它们就可以分离了；
 - 用继承体系来扩展新的接口，同时隐藏每个接口具体的层次实现；
 - 要比 encapsulation 更进一步，达到 insulation（绝缘）；
 
-## Problem
+### Problem
 
 "Hardening of the software arteries" 通过使用抽象基类的子类来提供可选的实现，这样在 compile-time 就将 interface 和其 implementation 进行绑定。抽象和实现不能独立地扩展或组合。
 
-## Motivation
+### Motivation
 
 参考这样一种场景："thread scheduling"
 
@@ -1289,7 +1285,7 @@ Bridge 设计模式建议将这种呈指数级爆炸的继承层次结构重构�
 -- JVM_PTS
 ```
 
-## Discussion
+### Discussion
 
 将某个组件的 interface 和 implementation 分离成类似正交的层级结构。在 interface 中关联一个 abstract implementation class。（上面结构中的 -> 实线箭头表示 URL 中的关联关系）
 
@@ -1318,13 +1314,13 @@ handle 在用户眼中就是真实的 class，但是具体的工作却是在 bod
 
 "The handle/body class idiom may be used to decompose a complex abstraction into smaller, more manageable classes. The idiom may reflect the sharing of a single resource by multiple classes that control access to it (e.g. reference counting)."
 
-## Structure
+### Structure
 
 Client 并不想去处理和 platform-dependent 相关的细节，使用 Bridge 模式可以将其中的复杂操作封装在一个 abstraction "wrapper" 下面；
 
 Bridge 强调从 "implementation" abstraction 中识别和解耦 "interface" abstraction。
 
-## Example
+### Example
 
 Bridge 将 abstraction 从它的具体 implementations 中解耦，这样抽象和实现就可以独立开来。
 
@@ -1524,7 +1520,7 @@ Turn off the light. [level: 0]
 Can't down light level, it's already minimum.
 ```
 
-## Check List
+### Check List
 
 （1）需要判断当前 domain 中存在哪两个维度可以构成正交关系（在上面的例子中开关的种类和具体事物的开关构成一个正交关系），这两个独立的概念类似于：abstraction/platform、or domain/infrastructure，or front-end/back-end，or interface/implementation；
 
@@ -1538,7 +1534,7 @@ Can't down light level, it's already minimum.
 
 （6）Define specializations of the abstraction class if desired. 
 
-## Rules of thumb
+### Rules of thumb
 
 Adapter makes things work after they're designed; Bridge makes them work before they are. 
 
@@ -1557,3 +1553,330 @@ State、Strategy、Bridge（某种程度上也包括 Adapter）具有相似的�
 - State 允许对象的 behavior 随着其 state 的改变而改变，而 Bridge 则是从其 implementation 中将 abstraction 中解耦出去，这样抽象和实现就可以彼此分离。
 
 If interface classes delegate the creation of their implementation classes (instead of creating/coupling themselves directly), then the design usually uses the Abstract Factory pattern to create the implementation objects.
+
+
+
+## Composite
+
+组合模式可将对象组合成树状结构，并且能够像使用独立对象一样使用它们。
+
+### Intent
+
+如果应用的核心模型可以使用树状结构表示，在应用中使用组合模式才会有价值。
+
+比如这样的场景：假如存在两类对象：产品 和 盒子，一个盒子中可以包含多个产品或者几个盒子，也可以同时包含盒子和产品，这些小盒子中一样可以包含一些产品和盒子，以此类推。
+
+假如根据这种情况开发一个订购系统，根据不同的情况计算所需要的总价格，此时可以通过组合模式实现；
+
+该方式的最大优点在于你无需了解构成树状结构的对象的具体类。你也无需了解对象是简单的产品还是复杂的盒子。你只需调用通用接口以相同的方式对其进行处理即可。当你调用该方法后，对象会将请求沿着树结构传递下去。
+
+### Structure
+
+在组合模式中通常存在以下角色：
+
+- 组件（Component）：接口定义了树种简单项目和复杂项目所共有的操作；
+- 叶节点（Leaf）：树的基本结构，不包含子项目；
+  - 一般情况下，Leaf 最终会完成大部分的实际工作，因为它们无法将工作指派给其他部分；
+- 容器（Container）又名组合（Composite）：包含 Leaf 或者其他 Container 子项目的单位。容器不知道其拥有的子项目的具体类，它只通过通用的 Component 接口与其子项目交互；
+  - 容器接收到请求后会将工作分配给自己的子项目，处理中间结果，然后将最终结果返回给客户端；
+- 客户端（Client）：通过组件接口与所有项目交互。因此，客户端能以相同方式与树状结构中的简单或复杂的项目进行交互；
+
+
+
+### Example
+
+这里选择一个简单的例子，比如一所大学的结构，从上到下依次是：学校 -> 学院 -> 专业，每个专业有具体的人数，下面开发这样的程序：要打印一所大学的层次结构及其所有人数：
+
+参考前面定义的组合模式中的角色：
+
+组件 Component 接口：
+
+```java
+/**
+ * 定义所有组件的通用行为
+ */
+public interface Introduce {
+
+    /**
+     * 获得总数量
+     * @return
+     */
+    int total();
+
+    /**
+     * 打印相关信息
+     * @return
+     */
+    void intro();
+    
+    void add(Introduce component);
+    
+    boolean remove(Introduce component);
+    
+}
+```
+
+容器 Container：
+
+```java
+/**
+ * 学校是一个 Composite, 包含多个 Leaf 或其他 Composite
+ */
+public class College implements Introduce {
+    
+    private String name;
+    
+    private List<Introduce> academies;
+
+    public College(String name) {
+        this.name = name;
+        this.academies = new ArrayList<>();
+    }
+
+    public College(String name, List<Introduce> academies) {
+        this.name = name;
+        this.academies = academies;
+    }
+    
+    @Override
+    public void add(Introduce component) {
+        this.academies.add(component);
+    }
+
+    @Override
+    public boolean remove(Introduce component) {
+        return this.academies.remove(component);
+    }
+
+    @Override
+    public int total() {
+        return this.academies.stream().mapToInt(Introduce::total).sum();
+    }
+
+    @Override
+    public void intro() {
+        System.out.printf("====================== %s 总人数: %d =====================%n", this.name, this.total());
+        this.academies.forEach(Introduce::intro);
+    }
+    
+}
+```
+
+```java
+/**
+ * 学院属于 Composite, 可以拥有多个 Leaf 或其他 Composite
+ */
+public class Academy implements Introduce {
+    
+    private String name;
+    
+    private List<Introduce> majors;
+
+    public Academy(String name) {
+        this.name = name;
+        this.majors = new ArrayList<>();
+    }
+
+    public Academy(String name, List<Introduce> majors) {
+        this.name = name;
+        this.majors = majors;
+    }
+
+    @Override
+    public void add(Introduce component) {
+        this.majors.add(component);
+    }
+    
+    @Override
+    public boolean remove(Introduce component) {
+        return this.majors.remove(component);
+    }
+
+    @Override
+    public int total() {
+        return this.majors.stream().mapToInt(Introduce::total).sum();
+    }
+
+    @Override
+    public void intro() {
+        System.out.printf("******** %s 总人数: %d *********%n", this.name, this.total());
+        this.majors.forEach(Introduce::intro);
+    }
+    
+}
+```
+
+子节点 Leaf：
+
+```java
+/**
+ * 专业属于 Leaf, 是树状结构的最底层, 是工作的实际执行者
+ */
+public class Major implements Introduce {
+    
+    private int studentNumber;
+    
+    private String name;
+
+    public Major(int studentNumber, String name) {
+        this.studentNumber = studentNumber;
+        this.name = name;
+    }
+
+    @Override
+    public int total() {
+        return this.studentNumber;
+    }
+
+    @Override
+    public void intro() {
+        System.out.println(this.name + " 总人数: " + this.total());
+    }
+
+    @Override
+    public void add(Introduce component) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean remove(Introduce component) {
+        throw new UnsupportedOperationException();
+    }
+
+}
+```
+
+测试客户端 Client：
+
+```java
+public class CompositeTestClient {
+    public static void main(String[] args) {
+        // tree: root
+        Introduce college = new College("xxx大学");
+        
+        // tree: depth 1
+        Introduce academy1 = new Academy("学院1");
+        Introduce academy2 = new Academy("学院2");
+        Introduce academy3 = new Academy("学院3");
+        
+        // tree: leaf
+        Introduce major11 = new Major(100, "专业11");
+        Introduce major12 = new Major(200, "专业12");
+        Introduce major13 = new Major(300, "专业13");
+
+        Introduce major21 = new Major(110, "专业21");
+        Introduce major22 = new Major(210, "专业22");
+        Introduce major23 = new Major(310, "专业23");
+
+        Introduce major31 = new Major(120, "专业31");
+        Introduce major32 = new Major(220, "专业32");
+        Introduce major33 = new Major(320, "专业33");
+        
+        // 组装树模型
+        college.add(academy1); college.add(academy2); college.add(academy3);
+        academy1.add(major11); academy1.add(major12); academy1.add(major13);
+        academy2.add(major21); academy2.add(major22); academy2.add(major23);
+        academy3.add(major31); academy3.add(major32); academy3.add(major33);
+        
+        // 测试
+        college.intro();
+        System.out.println();
+        academy1.intro();
+        academy2.intro();
+        academy3.intro();
+        System.out.println();
+        major11.intro();
+        major22.intro();
+        major33.intro();
+    }
+}
+```
+
+预期输出：
+
+```
+====================== xxx大学 总人数: 1890 =====================
+******** 学院1 总人数: 600 *********
+专业11 总人数: 100
+专业12 总人数: 200
+专业13 总人数: 300
+******** 学院2 总人数: 630 *********
+专业21 总人数: 110
+专业22 总人数: 210
+专业23 总人数: 310
+******** 学院3 总人数: 660 *********
+专业31 总人数: 120
+专业32 总人数: 220
+专业33 总人数: 320
+
+******** 学院1 总人数: 600 *********
+专业11 总人数: 100
+专业12 总人数: 200
+专业13 总人数: 300
+******** 学院2 总人数: 630 *********
+专业21 总人数: 110
+专业22 总人数: 210
+专业23 总人数: 310
+******** 学院3 总人数: 660 *********
+专业31 总人数: 120
+专业32 总人数: 220
+专业33 总人数: 320
+
+专业11 总人数: 100
+专业22 总人数: 210
+专业33 总人数: 320
+```
+
+### Check List
+
+1、确保应用的核心模式可以使用树状结构表示。尝试将其分解为简单元素和容器。容器必须能够同时包含简单元素和其他容器；
+
+2、声明组件接口及其一系列方法，这些方法对简单元素和复杂元素都有意义；
+
+3、创建一个叶子节点表示简单元素，程序中可以有多个不同的简单元素类；
+
+4、创建一个容器类表示复杂元素。在该类中创建一个数组成员变量来存储对其子元素的引用。数组成员类型需要声明为组件接口类型；
+
+容器实现组件中的方法时，注意需要把实际的工作指派给子元素；
+
+5、最后，在容器中定义添加和删除子元素的方法。
+
+注意：类似添加和删除的操作也可以在组件接口中声明（类似前面 Example 模块中相关代码示例），但是这会违背 `接口隔离原则`，因为叶子节点是不支持这些方法的。这样做的好处就和前面 Example 中 Client 示例代码一样，可以让客户端无差别地访问所有子元素，即使是组成树状结构的元素。
+
+
+
+### Advantage/Disadvantage
+
+优点：
+
+- 可以利用多态和递归机制更方便的使用复杂的树状结构；
+- 模式遵循 `开闭原则`，无需更改现有代码就可以通过继承机制添加新的元素，使其成为对象树的一部分；
+
+缺点：
+
+- 对于功能差异较大的类，提供公共接口或许有一定的难度；某些情况下如果一定要抽出接口，可能会让该接口变得难以理解；
+
+### Rules of thumb
+
+- 桥接、状态和策略（包括某些适配器）模式的接口非常相似，都采用了和组合模式相同的思想 —— 将工作委派给其他对象，但是各自又解决了不同的问题；
+- 可以在创建复杂的组合树时使用 Builder；
+- Responsibility Chain 通常和 Composite 模式一起使用。此时，叶子组件收到请求后，可以将请求沿着包含所有父组件的链一直传递到对象树的底部；
+- 可以使用迭代器来遍历组合树；
+- 可以使用访问者对整个组合树执行操作；
+- 可以使用享元实现组合树中共享叶子节点来节省内存占用；
+- 组合和装饰的结构很相似，因为两者都依赖递归组合来组织大量的对象；
+
+Decorator 类似于 Composite，但其只有一个子组件。此外还有一个明显不同：Decorator 为被封装的对象添加了额外的职责，Composite 仅对其子节点的结果进行了汇总 "求和"。
+
+当然，模式也可以相互合作，可以使用装饰器来扩展组合树中特定对象的行为；
+
+- 大量使用组合和装饰的设计通常可以从对原型的使用中获益，可以通过该模式复制对象，而无需从零开始构建；
+
+
+
+## Decorator
+
+装饰器模式又称：封装器、Wrapper、Decorator
+
+将原对象放入包含特殊行为的封装对象中，从而为原对象绑定新的行为；
+

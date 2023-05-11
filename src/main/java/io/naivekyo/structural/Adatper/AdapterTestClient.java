@@ -1,7 +1,7 @@
-package io.naivekyo.creational.Adatper;
+package io.naivekyo.structural.Adatper;
 
-import io.naivekyo.creational.Adatper.adapter.Rectangle;
-import io.naivekyo.creational.Adatper.legacy.LegacyRectangle;
+import io.naivekyo.structural.Adatper.adapter.Rectangle;
+import io.naivekyo.structural.Adatper.legacy.LegacyRectangle;
 
 public class AdapterTestClient {
     public static void main(String[] args) {
