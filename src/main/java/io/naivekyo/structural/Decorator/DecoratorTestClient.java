@@ -1,20 +1,23 @@
 package io.naivekyo.structural.Decorator;
 
-import io.naivekyo.structural.Decorator.impl.QQNotifierDecorator;
-import io.naivekyo.structural.Decorator.impl.SMSNotifierDecorator;
-import io.naivekyo.structural.Decorator.impl.WeChatNotifierDecorator;
+import io.naivekyo.structural.Decorator.decorator.QQNotifierDecorator;
+import io.naivekyo.structural.Decorator.component.Notifier;
+import io.naivekyo.structural.Decorator.component.SMSNotifier;
+import io.naivekyo.structural.Decorator.decorator.WeChatNotifierDecorator;
 
 public class DecoratorTestClient {
     public static void main(String[] args) {
         boolean qqNotificationEnable = true;
         boolean weChatNotificationEnable = true;
         
-        Notifier decorator = new BaseDecorator(new SMSNotifierDecorator());
-        if (qqNotificationEnable)
-            decorator = new QQNotifierDecorator(decorator);
-        if (weChatNotificationEnable)
-            decorator = new WeChatNotifierDecorator(decorator);
+        Notifier notifier = new SMSNotifier();
         
-        decorator.send("test msg");
+        // 这里模拟程序在运行时根据不同的配置启用不同的装饰
+        if (qqNotificationEnable)
+            notifier = new QQNotifierDecorator(notifier);
+        if (weChatNotificationEnable)
+            notifier = new WeChatNotifierDecorator(notifier);
+
+        notifier.send("test msg");
     }
 }

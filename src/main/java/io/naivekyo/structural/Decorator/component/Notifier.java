@@ -1,4 +1,4 @@
-package io.naivekyo.structural.Decorator;
+package io.naivekyo.structural.Decorator.component;
 
 public interface Notifier {
     

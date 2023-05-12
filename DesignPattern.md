@@ -1880,3 +1880,639 @@ Decorator 类似于 Composite，但其只有一个子组件。此外还有一个
 
 将原对象放入包含特殊行为的封装对象中，从而为原对象绑定新的行为；
 
+### Problem
+
+考虑这样的场景：假设正在开发一款用于发送通知消息的程序，默认使用短信通知的方式，程序很简单，提供一个发送消息的接口，和其短信实现类即可，但是如果后续增加了 QQ、微信通知，此时也可以通过添加对应的实现类来实现该功能，但是每一次程序在启动的时候只会选择其中一种方式。且如果用户想要同时实现任意两种或多种通知的组合，则需要添加更多的实现类。
+
+### Discussion
+
+通常当我们需要改变一个对象的行为时，首先想到的是扩展它所属的类，但是继承有一些缺点：
+
+- 继承是静态的：无法在运行时改变已有对象的行为，只能由不同子类创建的对象来替代当前整个对象；
+- 子类只有一个父类：大部分编程语言不允许多继承；
+
+除了继承外，另外一种方法是通过聚合或组合。继承和聚合/组合的工作方式几乎一模一样：
+
+- 聚合/组合：一个对象拥有对另一个对象的引用，将部分工作委派给引用对象；
+- 继承中的对象则是继承了父类的行为，它们自己就可以完成这部分工作；
+
+如果我们用聚合/组合来替代继承机制，就可以在运行时切换不同的引用对象来动态改变对象的行为，可以将各种不同的工作委派给不同的对象处理；
+
+<font style='color:green'>聚合/组合是许多设计模式背后的关键原则之一。</font>
+
+封装器是装饰器模式的别名，这个名称明确的阐释了该模式的主要思想："封装器" 是一个能与其他 "目标" 对象连接的对象。封装器中包含与目标对象相同的一系列方法，它将收到的请求委派给目标对象。但是封装器可以在将请求委派给目标前后做一些处理，所以可能会改变最终的结果。
+
+### Structure
+
+在包装器模式中存在以下角色：
+
+- 部件（Component）：声明封装器和被封装对象的公用接口；
+- 具体部件（Concrete Component）：该类是被封装对象所属的类，它定义了基础行为，但装饰器可以改变这些行为；
+- 基础装饰（Base Decorator）：该类拥有一个指向被封装对象的引用成员变量。该变量的类型应当声明为通用部件接口，这样它就可以引用具体的部件和装饰。装饰基类会将所有操作委派给被封装的对象；
+- 具体装饰类（Concrete Decorator）：定义了可动态添加到部件的额外行为。具体装饰类会重写装饰基类的方法，并在调用父类方法之前或之后进行额外的处理；
+- 客户端（Client）：可以使用多层装饰来封装部件，最后通过通用接口与其进行交互；
+
+
+
+### Example
+
+下面是前面通知问题的相关 Java 代码实现：
+
+通用接口：
+
+```java
+public interface Notifier {
+    
+    void send(String message);
+    
+}
+```
+
+通用接口的具体实现：
+
+```java
+public class SMSNotifier implements Notifier {
+ 
+    @Override
+    public void send(String message) {
+        this.sendSMS(message);
+    }
+    
+    protected void sendSMS(String message) {
+        System.out.println("Notification facility: SMS :: msg :: " + message);
+    }
+    
+}
+```
+
+装饰器基类：
+
+```java
+public class NotifierDecorator implements Notifier {
+    
+    protected Notifier wrapper;
+
+    public NotifierDecorator(Notifier wrapper) {
+        this.wrapper = wrapper;
+    }
+
+    // 基类装饰器会将具体工作委派给被封装的组件
+    @Override
+    public void send(String message) {
+        this.wrapper.send(message);
+    }
+    
+}
+```
+
+具体装饰：
+
+```java
+public class QQNotifierDecorator extends NotifierDecorator {
+
+    public QQNotifierDecorator(Notifier wrapper) {
+        super(wrapper);
+    }
+
+    // 具体装饰器子类可以在调用被封装对象之前或之后做一些操作
+    @Override
+    public void send(String message) { 
+        super.send(message);
+        this.sendQQ(message);
+    }
+    
+    protected void sendQQ(String message) { 
+        System.out.println("Notification facility: QQ :: msg :: " + message);
+    }
+}
+```
+
+```java
+public class WeChatNotifierDecorator extends NotifierDecorator {
+
+    public WeChatNotifierDecorator(Notifier wrapper) {
+        super(wrapper);
+    }
+
+    // 具体装饰器子类可以在调用被封装对象之前或之后做一些操作
+    @Override
+    public void send(String message) {
+        super.send(message);
+        this.sendWeChat(message);
+    }
+    
+    protected void sendWeChat(String message) {
+        System.out.println("Notification facility: WeChat :: msg :: " + message);
+    }
+}
+```
+
+客户端 Client：
+
+```java
+public class DecoratorTestClient {
+    public static void main(String[] args) {
+        boolean qqNotificationEnable = true;
+        boolean weChatNotificationEnable = true;
+        
+        Notifier notifier = new SMSNotifier();
+        
+        // 这里模拟程序在运行时根据不同的配置启用不同的装饰
+        if (qqNotificationEnable)
+            notifier = new QQNotifierDecorator(notifier);
+        if (weChatNotificationEnable)
+            notifier = new WeChatNotifierDecorator(notifier);
+
+        notifier.send("test msg");
+    }
+}
+```
+
+预期输出：
+
+```
+Notification facility: SMS :: msg :: test msg
+Notification facility: QQ :: msg :: test msg
+Notification facility: WeChat :: msg :: test msg
+```
+
+### Scenario
+
+适用场景：
+
+（1）如果希望在无需修改已有代码的前提下即可使用对象，且希望在运行时为对象增加新的行为，即可使用装饰器模式。
+
+Decorator 可以将业务逻辑组织为层状结构，每一层对应一个具体的装饰，在运行时将各种不同逻辑组合对象。由于这些对象都遵循通用接口，客户端代码可以以相同方式访问这些对象。
+
+（2）如果用继承扩展对象行为的方式难以实现或者不可行，此时可以使用装饰器模式。
+
+在某些编程语言中使用 final 修饰类来阻止扩展该类，此时可以使用装饰器模式对其进行封装。
+
+### Check List
+
+1. 确保业务逻辑可以用一个基本组件和多个额外可选层次表示；
+2. 找出基本组件和可选层次的通用方法。创建一个组件接口并将这些方法声明在其中；
+3. 创建一个具体组件类，并定义其基础行为；
+4. 创建装饰基类，使用一个成员变量存储被封装对象的引用。该成员变量必须声明为通用组件接口类型，从而在运行时连接具体组件和装饰。装饰基类必须将具体的工作委派给被封装对象；
+5. 确保所有类实现组件接口；
+6. 将装饰基类扩展为具体装饰。具体装饰必须在调用父类方法之前或之后执行自身的行为；
+7. 客户端代码负责创建装饰并将其组合成客户端所需要的方式；
+
+### Advantage/Disadvantage
+
+优点：
+
+- 无需创建新的子类即可扩展对象的行为；
+- 可以在运行时添加或删除对象的功能；
+- 可以用将被封装的对象设置为装饰，从而组合几种行为；
+- 符合单一职责原则：将实现了很多不同行为的一个大类拆分为多个小类；
+
+缺点：
+
+- 在封装器栈中删除特定的封装器非常困难；
+- 实现行为不受装饰栈影响的装饰比较困难；
+- 各层的初始化配的代码可能有些差别，导致这部分代码看起来比较糟；
+
+### Rules of thumb
+
+- Adapter 可以对已有对象的接口进行修改，Decorator 则可以在不改变对象接口的前提下强化对象功能。此外，装饰还支持递归组合，适配器则无法实现；
+- Adapter 能够为被封装对象提供不同的接口，Proxy 能为对象提供相同的接口，Decorator 则为对象提供增强的接口；
+- Responsibility Chain 和 Decorator 的类结构非常类似。两者都依赖递归组合将需要执行的操纵传递给一系列对象。但是两者有几个重要的不同之处：
+  - 职责链的管理者可以相互独立的执行一切操作，还可以随时停止传递请求。
+  - 各种装饰可以在遵循基础接口的情况下扩展对象的行为，此外，装饰无法中断请求的传递。
+- Composite 和 Decorator 的结构图也很类似，两者都依赖递归组合来组织无限数量的对象；
+  - 装饰类似于组合，但是装饰只有一个子组件。还有一个明显的不同：装饰为被封装对象添加了额外的职责，组合仅仅对其子节点的结果进行了 "求和"；
+  - 但是，模式也可以相互合作，可以使用装饰来扩展组合树中特定对象的行为；
+- 大量使用 Composite 和 Decorator 的设计通常可以利用 Prototype 模式来复制复杂的结构，而非从零开始构造；
+- Decorator 可以更改对象的外观，Strategy 则可以改变对象的本质；
+- Decorator 和 Proxy 有着相似的结构，但是其目的不同。这两个模式的构建都基于组合原则，也就是一个对象应该将部分工作委派给另一个对象。两者的不同之处在于 Proxy 通常自行管理其服务对象的生命周期，而 Decorator 的生成总是由客户端控制。
+
+
+
+## Facade
+
+外观模式能为程序库、框架或其他复杂类提供一个简单的接口；
+
+### Problem
+
+假设需要在程序中使用某个复杂的库或框架中的众多对象。正常情况下代码中需要负责所有类的初始化工作、管理其依赖关系并按照正确的顺序执行方法等等。
+
+最终会导致程序中的业务逻辑将会与第三方类的实现细节紧密相关，不利于后续维护。
+
+### Solution
+
+外观类为包含许多组件的子系统提供了一个简单的接口。与直接调用子系统相比，外观提供的功能可能比较有限，但它却包含了客户端真正关心的功能。
+
+如果程序中需要与包含几十种功能的复杂库整合，但是只需要使用其中非常少的功能，那么使用外观模式就会非常方便。
+
+### Structure
+
+外观模式中存在以下集中角色：
+
+（1）外观（Facade）：提供了一种访问特定子系统功能的便捷方式，这些接口知道要处理的请求类型，以及所需的子系统相关组件；
+
+（2）附加外观（Additional Facade）：该类可以避免多种不相关的功能污染单一外观，使其变成又一个复杂结构。客户端和其他外观都可以使用附加外观；
+
+（3）复杂子系统（Complex Subsystem）：由数十个不同的对象构成。如果要用这些对象完成有意义的工作，就必须深入了解子系统的实现细节，比如按照正确顺序初始化对象并为其提供正确格式的数据等等；
+
+子系统类不会意识到外观的存在，它们在系统内运作并且相互之间可以进行直接交互；
+
+（4）客户端（Client）：使用外观类完成业务逻辑，避免对子系统的直接调用。
+
+### Example
+
+考虑这样的场景：想要实现将一种格式的视频转换为另一种格式的视频文件的接口，需要利用多个视频相关的子系统，比如编解码器、视频数据读取/生成组件、音视频混合器等等。
+
+我们可以创建一个外观类封装所需要的功能，并隐藏和子系统交互的代码，这样未来如果更换了相关库或框架，只需要重写外观类即可。
+
+子系统相关类：
+
+```java
+public class VideoFile {
+    private String fileName;
+
+    public VideoFile(String fileName) {
+        this.fileName = fileName;
+        // ......
+    }
+}
+
+public class CodecFactory {
+	// ......
+}
+
+public class MPEG4CompressionCodec {
+	// ......
+}
+
+public class OggCompressionCodec {
+	// ......
+}
+
+public class BitrateReader {
+	// ......
+}
+
+public class AudioMixer {
+	// ......
+}
+```
+
+外观类：
+
+```java
+/**
+ * Facade 类: 屏蔽内部利用多个子系统进行复杂的处理, 对外暴露特定的接口; <br/>
+ * 这些接口并不会包含子系统所能提供的所有功能, 而是提供用户关心的接口, 后续可以继续添加相关接口, 或者重写外观类;
+ */
+public class VideoConverter {
+    
+    public VideoFile converter(String fileName, String format) {
+        VideoFile file = new VideoFile(fileName);
+        
+        // ........
+        
+        return obj;
+    }
+}
+```
+
+客户端：
+
+```java
+public class FacadeTestClient {
+    public static void main(String[] args) {
+        VideoConverter converter = new VideoConverter();
+        // ..........
+    }
+}
+```
+
+### Scenario
+
+- 需要一个指向复杂子系统的简单接口，且该接口功能有效，则可以使用外观模式；
+
+子系统通常会随着时间的推进变得越来越复杂。即便是应用了设计模式，通常你也会创建更多的类。尽管在多种情形中子系统可能是更灵活或易于复用的，但其所需的配置和样板 代码数量将会增长得更快。为了解决这个问题，外观将会提供指向子系统中最常用功能的快捷方式，能够满足客户端的大部分需求。
+
+- 如果需要将子系统组织成多层结构，可以使用外观；
+
+创建外观来定义子系统各层次的入口。也可以要求子系统仅通过外观交互，以减少各层之间的耦合。
+
+
+
+### Rules of thumb
+
+- Facade 为现有的对象定义了一个新的接口，Adapter 通常则会试图运用已有的接口。Adapter 中通常只会封装一个对象，Facade 则会作用于整个子系统的对象上；
+- 当只需要对客户端代码隐藏子系统创建对象的方式时，可以使用 Abstract Factory 代替 Facade；
+- Flyweight 展示了如何生成大量的小型对象，Facade 则展示了如何用一个对象来代表整个子系统；
+- Facade 和 Mediator（中介者）的职责类似：它们都尝试组织大量紧密耦合的类完成某些功能；
+  - Facade 为子系统中所有对象设计一个简单接口，但是它不会提供任何新的功能。子系统本身不会意识到外观的存在，子系统中所有对象可以直接进行交流；
+  - Mediator 将系统中组件的沟通行为中心化。各组件只知道中介者对象，无法直接相互交流；
+- Facade 类通常可以转换为 Singleton 类，因为在大部分情况下一个外观对象就足够了；
+- Facade 和 Proxy 的相似之处在于它们都缓存了一个复杂实体并负责对其进行初始化。代理与其服务对象遵循同一接口，使得自己和服务对象可以互换，在这一点上它与外观不同；
+
+## Flyweight
+
+享元模式摒弃了在每个对象中保存所有数据的形式，通过共享多个对象所共有的相同状态，从而在有限的内存容量中载入更多的对象；
+
+### Problem
+
+考虑这样的场景：在开发一款射击游戏时，每个子弹具备特定的属性，比如坐标、移动矢量、速度、颜色、精灵图（sprite），当界面中存在大量子弹时，内存的占用量就会迅速升高，因为每个子弹在内存中占据的位置都是不同的。
+
+### Solution
+
+对子弹的内存组成进行分析，可以发现坐标、移动矢量、速度这三个属性都是动态变化的， 而颜色和精灵图只有几种，此时可以考虑使用享元模式来解决内存占用过多的问题；
+
+对象的常量数据通常称为 `内在状态`，这部分数据不能被其他对象修改，只能读取其数值。而对象的其他状态往往能够被其他对象从外部改变，这类属性称为 `外部状态`。
+
+享元模式建议不在对象中存储外部状态，而是将其传递给依赖于它的一个特殊方法。程序只在对象中维持内部状态，以便在不同情况下复用。此时程序中需要的对象数量将会大量减少。
+
+<font style='color:green'>将一个仅存储内部状态的对象称为享元。</font>
+
+### Structure
+
+（1）外部状态存储
+
+内在状态由享元对象存储，而外在状态大部分情况下由容器对象存储，也就是我们在应用享元模式之前的聚合对象（在射击游戏场景中，这个聚合对象就是 Game 这个游戏容器对象，里面含有所有子弹对象）。
+
+一种更好的方式是创建独立的情景类来存储外部状态和对享元对象的引用（本例中就是改造后的子弹对象）；
+
+和没有使用享元模式时相比，情景对象的数量还是会不断增加，但是内在状态对应的享元对象的数量却少了很多。现在一个享元大对象会被上千个情景小对象复用，因此无需重复存储数千个大对象的数据。
+
+（2）享元与不可变性
+
+由于享元对象可在不同的情景中使用，你必须确保其状态不能被修改。享元类的状态只能由构造函数的参数进行一次性初始化，它不能对其他对象公开其设置器或公有成员变量。
+
+（3）享元工厂
+
+为了能更方便地访问各种享元，你可以创建一个工厂方法来管理已有享元对象的缓存池。工厂方法从客户端处接收目标享元对象的内在状态作为参数，如果它能在缓存池中找到所需享元，则将其返回给客户端；如果没有找到，它就会新建一个享元，并将其添加到缓存池中。
+
+你可以选择在程序的不同地方放入该函数。最简单的选择就是将其放置在享元容器中。除此之外，你还可以新建一个工厂类，或者创建一个静态的工厂方法并将其放入实际的享元类中。
+
+享元模式中存在以下角色：
+
+1. 享元模式只是一种优化，在应用该模式之前，要确定程序中存在大量相似对象占用大量内存的问题，并且确保该问题无法使用其他更好的方式解决；
+2. 享元（Flyweight）类中包含原始对象中部分能够在多个对象中共享的状态。同一享元对象可以在很多不同的情景中使用。享元中存储的状态被称为 "内部状态"。传递给享元方法的状态被称为 "外部状态"；
+3. 情景（Context）类中包含原始对象中各不相同的外在状态。情景与享元对象组合在一起表示原始对象的全部状态；
+4. 通常情况下，原始对象的行为会保存在享元类中。因此调用享元方法必须提供部分外在状态作为参数。但是也可以将行为移到情景类中，然后将连入的享元作为单纯的数据对象；
+5. 客户端（Client）负责计算和存储享元的外在状态。在客户端看来，享元是一种可在运行时配置的模板对象，具体的配置方式为向其方法中传入一些情景数据参数；
+6. 享元工厂（Flyweight Factory）会对已有享元的缓存池进行管理。有了工厂后，客户端就无需直接创建享元，它们只需调用工厂并向其传递目标享元的一些内在状态参数即可。工厂会根据参数在之前已经创建的享元中进行查找，如果找到满足条件的享元就将其返回；否则就根据参数创建新的享元并返回；
+
+### Example
+
+参考下面的例子：在画布上需要渲染上万个树状对象；
+
+利用享元模式从树 Tree 类中抽取内在状态，并将其移动到享元类 TreeType 中，最初程序需要为每个树对象准备一份独有的内存空间，而现在仅需要用几个享元对象保存内部状态，然后在作为情景的树对象中连入享元即可。
+
+客户端代码使用享元工厂创建树对象并封装搜索指定对象的复杂行为，并能在需要时复用对象；
+
+享元对象：
+
+```java
+/**
+ * 享元对象: 本例中享元中含有树对象的内在状态, 也即每个树唯一的数据
+ */
+public class TreeType {
+
+    /**
+     * 类型
+     */
+    private String type;
+
+    /**
+     * 颜色
+     */
+    private String color;
+
+    /**
+     * 纹理
+     */
+    private String texture;
+
+    public TreeType(String type, String color, String texture) {
+        this.type = type;
+        this.color = color;
+        this.texture = texture;
+    }
+
+    /**
+     * 本例子中在享元类中封装原始对象的行为, 将外部状态作为参数传递给此方法 <br/>
+     * 在画布的指定坐标 (x, y) 处绘制树图形
+     * @param canvas    画布
+     * @param x         x-axis
+     * @param y         y-axis
+     */
+    public void draw(Object canvas, int x, int y) {
+        // ......
+        System.out.printf("type: %s, color: %s, texture: %s, (%d, %d)%n", this.type, this.color, this.texture, x, y);
+    }
+    
+    public String getType() {
+        return type;
+    }
+
+    public String getColor() {
+        return color;
+    }
+
+    public String getTexture() {
+        return texture;
+    }
+}
+```
+
+享元工厂：
+
+```java
+/**
+ * 享元工厂: 复用或创建一个新的享元
+ */
+public class TreeFactory {
+    
+    private static List<TreeType> flyweight = new CopyOnWriteArrayList<>();
+    
+    public static TreeType getTreeType(String type, String color, String texture) {
+        TreeType find = flyweight.stream().filter(tree ->
+                // do search ...
+                type.equals(tree.getType())
+                        && color.equals(tree.getColor())
+                        && texture.equals(tree.getTexture())).findFirst().orElse(null);
+        
+        if (find == null) {
+            // concurrency support
+            TreeType treeType = new TreeType(type, color, texture);
+            flyweight.add(treeType);
+            return treeType;
+        } else 
+            return find;
+    }
+
+    /**
+     * 获取享元缓存池, 测试使用
+     * @return 缓存池
+     */
+    public static List<TreeType> getFlyweight() {
+        return flyweight;
+    }
+}
+```
+
+情景类（包含原始对象持有的内部/外部状态）：
+
+```java
+/**
+ * 情景类: 包含原始树对象的外在状态以及一个对享元对象的引用 <br/>
+ * 程序中可以创建无限量的情景对象, 因为它们占用内存空间很小
+ */
+public class Tree {
+
+    /**
+     * x-axis
+     */
+    private int x;
+
+    /**
+     * y-axis
+     */
+    private int y;
+
+    /**
+     * 包含内部状态的享元对象的引用
+     */
+    private TreeType treeType;
+
+    public Tree(int x, int y, TreeType treeType) {
+        this.x = x;
+        this.y = y;
+        this.treeType = treeType;
+    }
+
+    public void draw(Object canvas) {
+        this.treeType.draw(canvas, this.x, this.y);
+    }
+
+    public int getX() {
+        return x;
+    }
+
+    public void setX(int x) {
+        this.x = x;
+    }
+
+    public int getY() {
+        return y;
+    }
+
+    public void setY(int y) {
+        this.y = y;
+    }
+
+    public TreeType getTreeType() {
+        return treeType;
+    }
+
+    public void setTreeType(TreeType treeType) {
+        this.treeType = treeType;
+    }
+}
+```
+
+Client 交互客户端：
+
+```java
+/**
+ * Client: 在本例中 Tree 和 Forest 类都是享元的客户端
+ */
+public class Forest {
+    
+    private List<Tree> trees;
+
+    public Forest() {
+        this.trees = new ArrayList<>();
+    }
+
+    public void plantTree(int x, int y, String name, String color, String texture) {
+        TreeType type = TreeFactory.getTreeType(name, color, texture);
+        Tree tree = new Tree(x, y, type);
+        this.trees.add(tree);
+    }
+    
+    public void draw(Object canvas) {
+        this.trees.forEach(t -> t.draw(canvas));
+    }
+    
+    public static void main(String[] args) {
+        Forest forest = new Forest();
+        forest.plantTree(1, 1, "type1", "red", "aaa");
+        forest.plantTree(2, 2, "type2", "yellow", "bbb");
+        forest.plantTree(3, 3, "type3", "green", "ccc");
+
+        forest.plantTree(4, 4, "type2", "yellow", "bbb");
+        
+        forest.draw(new Object());
+        
+        // insight into flyweight cached pool
+        TreeFactory.getFlyweight().forEach(System.out::println);
+    }
+}
+```
+
+预期输出：
+
+```
+type: type1, color: red, texture: aaa, (1, 1)
+type: type2, color: yellow, texture: bbb, (2, 2)
+type: type3, color: green, texture: ccc, (3, 3)
+type: type2, color: yellow, texture: bbb, (4, 4)
+
+io.naivekyo.structural.Flyweight.flyweight.TreeType@7291c18f
+io.naivekyo.structural.Flyweight.flyweight.TreeType@34a245ab
+io.naivekyo.structural.Flyweight.flyweight.TreeType@7cc355be
+```
+
+
+
+### Scenario
+
+适用场景：
+
+程序必须支持大量对象且没有足够的内存容量时考虑使用享元模式；
+
+应用该模式所获的收益大小取决于使用它的方式和场景。它在以下场景中最有效：
+
+- 程序需要生成数量巨大的相似对象；
+- 很快内存将被耗尽；
+- 可以从这些对象中抽取能够在多个对象之间共享的重复状态；
+
+
+
+### Check List
+
+（1）将需要改写为享元的类的成员变量拆分为两个部分：
+
+- 内在状态：包含不变的、可在许多对象中重复使用的数据对应的成员变量；
+- 外在状态：包含每个对象不同的情景数据的成员变量；
+
+（2）保留类中表示内在状态的成员状态，并将其属性设置为不可修改，这些变量尽可通过构造函数进行初始化；
+
+（3）找到所有使用外在状态成员变量的方法，为这些成员变量提供参数；
+
+（4）可以有选择地创建工厂类来管理享元缓存池；如果选用工厂，客户端就只能通过工厂来请求享元，需要将内在状态作为参数传递给工厂方法；
+
+（5）客户端必须存储和计算外在状态对应的数据，利用这些数据调用享元对象的方法。为了方便处理，可以再抽取出一个情景类存储外在状态和一个对享元对象的引用变量。
+
+
+
+### Rules of thumb
+
+- 用 Flyweight 实现 Composite 树的共享叶子节点以节省内存；
+- Flyweight 展示了如何生成大量的小型对象，Facade 则展示了如何用一个对象来代表整个子系统；
+- 如果能够将对象的所有共享状态简化为一个享元对象，那么 Flyweight 就和 Singleton 类似了。但是这两个模式有两个根本性的不同之处：
+  - Singleton 只有一个单例实体，Flyweight 可以有多个实体，各个实体的内部状态也可以不同；
+  - 单例对象可以是可变的，而享元对象是不可变的；
+
+
+
+## Proxy
+
+代理模式能够提供对象的替代品或者占位符。代理控制着对原对象的访问，并在原对象处理请求前后进行一些额外的处理。
