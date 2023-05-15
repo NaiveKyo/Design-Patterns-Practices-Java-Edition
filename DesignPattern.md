@@ -2516,3 +2516,5 @@ io.naivekyo.structural.Flyweight.flyweight.TreeType@7cc355be
 ## Proxy
 
 代理模式能够提供对象的替代品或者占位符。代理控制着对原对象的访问，并在原对象处理请求前后进行一些额外的处理。
+
+### Intent
