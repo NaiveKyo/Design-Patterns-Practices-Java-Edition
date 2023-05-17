@@ -17,7 +17,7 @@ public class JDKDynamicProxy implements InvocationHandler {
     }
 
     /**
-     * 获取动态生成的代理类
+     * 获取动态生成的代理类实例
      * @param obj 目标接口的实现类
      * @return proxy instance
      */
@@ -31,7 +31,7 @@ public class JDKDynamicProxy implements InvocationHandler {
         Object methodResult = null;
         try {
             System.out.println("proxy: before...");
-            methodResult = method.invoke(agent, args);
+            methodResult = method.invoke(this.agent, args);
         } catch (InvocationTargetException e) {
             throw e.getTargetException();
         } catch (Exception e) {

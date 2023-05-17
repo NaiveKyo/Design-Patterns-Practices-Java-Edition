@@ -2518,3 +2518,196 @@ io.naivekyo.structural.Flyweight.flyweight.TreeType@7cc355be
 代理模式能够提供对象的替代品或者占位符。代理控制着对原对象的访问，并在原对象处理请求前后进行一些额外的处理。
 
 ### Intent
+
+举个例子，如果有一个消耗大量系统资源的对象，但是使用频率不高，我们希望它能够延迟初始化，在实际需要使用该对象的时候再执行初始化代码；
+
+如果这个类由我们自行提供，则可以通过编写额外的代码来解决这个问题，但是往往这种类由第三方封闭库提供，开发者没法直接修改该类源码；
+
+此时代理模式建议新建一个与原服务对象接口相同的代理类，应用程序只需和该代理类沟通即可，代理类接受到客户端请求后会创建实际的服务对象，并将所有工作委派给它。
+
+这样有什么好处呢？如果需要在类的主要业务逻辑前后执行一些工作，使用代理则无需修改目标类就可以完成这些工作。由于代理实现的接口与原类相同，因此可以将其传递给任何一个使用实际服务对象的客户端。
+
+### Structure
+
+
+
+- 服务接口（Service Interface）：声明了服务接口。代理必须遵循该接口才能伪装成服务类；
+- 服务（Service）类提供了一些实用的业务逻辑；
+- 代理（Proxy）类包含一个指向服务对象的引用成员变量，代理完成其工作（比如延迟初始化、记录日志、访问控制和缓存等等）后会将请求传递给服务对象。同时代理对象对服务对象的整个生命周期进行管理；
+- 客户端（Client）通过同一接口与服务或者代理进行交互；
+
+
+
+### Scenario
+
+使用代理模式的场景有很多，下面列出常用的一些场景：
+
+- 延迟初始化（虚拟代理）：如果有一个偶尔使用的重量级服务对象，一直保持该对象运行会消耗系统资源时，可以使用代理模式；
+
+无需在程序启动时就创建该对象，可将对象的初始化延迟到真正需要使用的时候；
+
+- 访问控制（保护代理）：如果希望特定客户端使用服务对象，这里的对象可以是操作系统中非常重要的部分，而客户端则是已启动的程序（包括恶意程序），此时可以使用代理模式；
+
+代理将对客户端的凭据进行检验，满足要求才会将请求传递给服务对象；
+
+- 本地执行远程服务（远程代理）：适用于服务对象位于远程服务器上的情形；
+
+此种情况下，代理通过网络传递客户端请求，负责处理所有与网络相关的复杂细节；
+
+- 记录日志请求（日志记录代理）：适用于需要保存对服务对象的请求历史记录时；
+
+代理可以在向服务传递请求前进行记录；
+
+- 缓存请求结果（缓存代理）：适用于需要缓存客户请求结果并对缓存生命周期进行管理时，特别是当返回结果的体积非常大时；
+
+代理可对重复请求所需的相同结果进行缓存，还可以使用请求参数作为索引缓存的键值；
+
+- 智能引用。可以在客户端不在使用某个重量级对象的时候销毁该对象。
+
+代理需要记录所有引用了服务对象及其结果的客户端，时不时进行检查这些客户端是否在运行。如果相应的客户端列表为空，代理就会销毁该服务对象，释放底层资源；
+
+代理还可以记录客户端是否修改了服务对象。其他客户端还可以复用未修改的对象。
+
+### Check List
+
+（1）如果没有现成的服务接口，你就需要创建一个接口来实现代理和服务对象的可交换性。从服务类中抽取接口并非总是可行的，因为你需要对服务的所有客户端进行修改，让它们使用接口。备选计划是将代理作为服务类的子类，这样代理就能继承服务的所有接口了。
+
+（2）创建代理类，其中必须包含一个存储指向服务的引用的成员变量。通常情况下，代理负责创建服务并对其整个生命周期进行管理。在一些特殊情况下，客户端会通过构造函数将服务传递给代理。
+
+（3）根据需求实现代理方法。在大部分情况下，代理在完成一些任务后应将工作委派给服务对象。
+
+（4）可以考虑新建一个构建方法来判断客户端可获取的是代理还是实际服务。 你可以在代理类中创建一个简单的静态方法，也可以创建一个完整的工厂方法。
+
+（5）可以考虑为服务对象实现延迟初始化。
+
+### Example
+
+在 Java 中有两种代理模式：静态代理和动态代理；
+
+静态代理即传统的代理方式，基于相同接口和聚合实现；
+
+动态代理则是结合 Java 语言本身的特性实现的，无需编写类模板，即可在运行时动态生成 JVM 构造的代理类的实例；
+
+下面看一下动态代理实现：
+
+服务接口 Service Interface：
+
+```java
+public interface Service {
+    void doSomething1();
+    void doSomething2();
+}
+```
+
+服务 Service：
+
+```java
+public class ServiceImpl implements Service{
+    @Override
+    public void doSomething1() {
+        System.out.println("agent: do something1.");
+    }
+
+    @Override
+    public void doSomething2() {
+        System.out.println("agent: do something 2.");
+    }
+}
+```
+
+代理类关联的 InvocationHandler（Java 提供）：
+
+```java
+public class JDKDynamicProxy implements InvocationHandler {
+
+    /**
+     * 被代理的真实对象
+     */
+    private Object agent;
+
+    private JDKDynamicProxy(Object agent) {
+        this.agent = agent;
+    }
+
+    /**
+     * 获取动态生成的代理类实例
+     * @param obj 目标接口的实现类
+     * @return proxy instance
+     */
+    public static Object getObject(Object obj) {
+        ClassLoader cl = Thread.currentThread().getContextClassLoader();
+        return Proxy.newProxyInstance(cl, obj.getClass().getInterfaces(), new JDKDynamicProxy(obj));
+    }
+    
+    @Override
+    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+        Object methodResult = null;
+        try {
+            System.out.println("proxy: before...");
+            methodResult = method.invoke(this.agent, args);
+        } catch (InvocationTargetException e) {
+            throw e.getTargetException();
+        } catch (Exception e) {
+            throw new RuntimeException("unexpected invocation exception: " + e.getMessage());
+        } finally {
+            System.out.println("proxy: after...");
+        }
+        return methodResult;
+    }
+    
+}
+```
+
+可以看到 InvocationHandler 中聚合了服务对象，这里通过静态方法 `getObject` 内部使用 Proxy 动态构造代理类实例，而实现了 InvocationHandler 接口的 invoke 方法则进行代理的实际工作，这里仅仅在将客户端请求传递给服务对象前后进行日志打印，且对服务对象方法的调用通过反射机制实现。
+
+客户端 Client：
+
+```java
+public class DynamicProxyClientTest {
+    public static void main(String[] args) {
+        Service s = new ServiceImpl();
+        Service proxy = (Service) JDKDynamicProxy.getObject(s);
+        proxy.doSomething1();
+        proxy.doSomething2();
+    }
+}
+```
+
+预期输出：
+
+```
+proxy: before...
+agent: do something1.
+proxy: after...
+
+proxy: before...
+agent: do something 2.
+proxy: after...
+```
+
+注意动态生成的代理类实例继承了 Proxy 同时实现了 Service 接口；
+
+Java 的动态代理机制是基于接口实现的，主要目的是为了代理相关接口中定义的方法，可以同时代理多个接口，但是也有相关限制，具体参加 jdk 官方文档描述；
+
+### Advantage/Disadvantage
+
+优点：
+
+- 代理控制服务对象对客户端是透明的；
+- 如果客户端对服务对象的生命周期没有特殊要求，你可以对其生命周期进行管理；
+- 即使服务对象还未准备好或不存在，代理也可以正常工作；
+- 满足开闭原则，可以在不对服务或客户端修改的前提下创建新的代理；
+
+
+
+缺点：
+
+- 需要新建很多类，可能会导致代码变得复杂；
+- 服务响应也许会延迟；
+
+### Rules of thumb
+
+- Adapter 能为被封装的对象提供不同的接口，Proxy 能为对象提供相同的接口，Decorator 能为对象提供增强的接口；
+- Facade 和 Proxy 的相似之处在于它们都缓存了一个复杂实体并自行对其进行初始化。Proxy 与其服务对象遵循同一接口，可以和服务对象互换，在这一点上它和 Facade 不同；
+- Decorator 和 Proxy 具有相似的结构，但是其目的不一样。这两个模式的构建都基于组合原则，也就是一个对象应该将部分工作委派给另一个对象。两者之间的不同之处在于 Proxy 通常自行管理其服务对象的生命周期，而 Decorator 的生成则总是由客户端进行控制；
+
