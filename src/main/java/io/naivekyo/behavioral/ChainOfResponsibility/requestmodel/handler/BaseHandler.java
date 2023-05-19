@@ -28,24 +28,27 @@ public class BaseHandler implements Handler, Order {
     public void handle(Request request, Response response) {
         // 将请求沿着链传递, 达到末尾且没有被终止传递则刷新响应
         boolean support = this.supportHandle(request);
-        boolean done = false;
+        boolean done;
         if (support) {
             done = this.doHandle(request, response);
+            if (!done) {
+                if (this.next != null)
+                    this.next.handle(request,response);
+                else {
+                    response.write("done.");
+                    response.flush();
+                }
+            } else {
+                response.write("done.");
+                response.flush();
+            }
         } else {
             if (this.next != null)
                 this.next.handle(request, response);
             else {
                 response.write("done.");
                 response.flush();
-                return;
             }
-        }
-        
-        if (!done && this.next != null)
-            this.next.handle(request, response);
-        else {
-            response.write("done.");
-            response.flush();
         }
     }
 

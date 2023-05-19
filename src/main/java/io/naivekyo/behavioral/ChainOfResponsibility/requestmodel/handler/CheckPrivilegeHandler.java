@@ -21,7 +21,7 @@ public class CheckPrivilegeHandler extends BaseHandler {
                 response.write("[" + this.getClass().getSimpleName() + " : " + " Unauthorized operation!] ");
             }
         } else {
-            response.write(this.getClass().getSimpleName() + " : " + " Illegal privilege! ");
+            response.write("[" + this.getClass().getSimpleName() + " : " + " Illegal privilege!] ");
         }
         
         return true;

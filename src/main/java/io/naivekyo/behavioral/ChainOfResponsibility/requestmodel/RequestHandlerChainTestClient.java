@@ -5,6 +5,7 @@ import io.naivekyo.behavioral.ChainOfResponsibility.requestmodel.handler.BaseHan
 import io.naivekyo.behavioral.ChainOfResponsibility.requestmodel.handler.CheckPrivilegeHandler;
 import io.naivekyo.behavioral.ChainOfResponsibility.requestmodel.handler.Handler;
 import io.naivekyo.behavioral.ChainOfResponsibility.requestmodel.handler.RecordLogHandler;
+import io.naivekyo.behavioral.ChainOfResponsibility.requestmodel.handler.TestHandler;
 import io.naivekyo.behavioral.ChainOfResponsibility.requestmodel.request.Request;
 import io.naivekyo.behavioral.ChainOfResponsibility.requestmodel.request.StandardRequest;
 import io.naivekyo.behavioral.ChainOfResponsibility.requestmodel.response.Response;
@@ -32,6 +33,7 @@ public class RequestHandlerChainTestClient {
         List<BaseHandler> handlerChain = new ArrayList<>();
         handlerChain.add(new CheckPrivilegeHandler(100));
         handlerChain.add(new RecordLogHandler(1));
+        handlerChain.add(new TestHandler(2));
         handlerChain.sort(Comparator.comparingInt(BaseHandler::getOrder));
 
         Handler chain = buildCoF(handlerChain);

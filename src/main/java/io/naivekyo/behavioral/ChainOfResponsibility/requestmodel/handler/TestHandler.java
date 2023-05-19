@@ -3,19 +3,15 @@ package io.naivekyo.behavioral.ChainOfResponsibility.requestmodel.handler;
 import io.naivekyo.behavioral.ChainOfResponsibility.requestmodel.request.Request;
 import io.naivekyo.behavioral.ChainOfResponsibility.requestmodel.response.Response;
 
-public class RecordLogHandler extends BaseHandler {
+public class TestHandler extends BaseHandler {
     
-    public RecordLogHandler(int order) {
+    public TestHandler(int order) {
         super(order);
     }
 
     @Override
     protected boolean doHandle(Request request, Response response) {
-        if (this.supportHandle(request)) {
-            response.write(String.format("[%s : record operation log.] ", this.getClass().getSimpleName()));
-            System.out.printf("[LOGGER]: %s [user]: %s [do]: %s%n", this.getClass().getSimpleName(), request.getUsername(), request.getPrivilege());
-        }
-        // 继续传递
+        response.write(String.format("[%s : test handler] ", this.getClass().getSimpleName()));
         return false;
     }
 
@@ -23,5 +19,4 @@ public class RecordLogHandler extends BaseHandler {
     protected boolean supportHandle(Request request) {
         return true;
     }
-    
 }
