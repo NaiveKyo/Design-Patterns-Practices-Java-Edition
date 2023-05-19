@@ -15,13 +15,13 @@ public class CheckPrivilegeHandler extends BaseHandler {
         // 鉴权
         if (Context.illegalPrivilege(request.getPrivilege())) {
             if (Context.checkUserCertified(request.getUsername(), request.getPrivilege())) {
-                response.write("[" + this.getClass().getSimpleName() + " : " + "pass;] ");
+                response.write(String.format("[%s : pass.] ", this.getClass().getSimpleName()));
                 return false;
             } else {
-                response.write("[" + this.getClass().getSimpleName() + " : " + " Unauthorized operation!] ");
+                response.write(String.format("[%s : Unauthorized operation!] ", this.getClass().getSimpleName()));
             }
         } else {
-            response.write("[" + this.getClass().getSimpleName() + " : " + " Illegal privilege!] ");
+            response.write(String.format("[%s : Illegal privilege!] ", this.getClass().getSimpleName()));
         }
         
         return true;

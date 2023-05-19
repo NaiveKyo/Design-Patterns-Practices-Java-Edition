@@ -11,11 +11,9 @@ public class RecordLogHandler extends BaseHandler {
 
     @Override
     protected boolean doHandle(Request request, Response response) {
-        if (this.supportHandle(request)) {
-            response.write(String.format("[%s : record operation log.] ", this.getClass().getSimpleName()));
-            System.out.printf("[LOGGER]: %s [user]: %s [do]: %s%n", this.getClass().getSimpleName(), request.getUsername(), request.getPrivilege());
-        }
-        // 继续传递
+        response.write(String.format("[%s : record operation log.] ", this.getClass().getSimpleName()));
+        System.out.printf("[LOGGER]: %s [user]: %s [do]: %s%n", this.getClass().getSimpleName(), request.getUsername(), request.getPrivilege());
+        
         return false;
     }
 

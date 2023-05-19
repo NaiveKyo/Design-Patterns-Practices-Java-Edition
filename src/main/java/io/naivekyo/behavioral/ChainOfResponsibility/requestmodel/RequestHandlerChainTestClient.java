@@ -33,13 +33,13 @@ public class RequestHandlerChainTestClient {
         List<BaseHandler> handlerChain = new ArrayList<>();
         handlerChain.add(new CheckPrivilegeHandler(100));
         handlerChain.add(new RecordLogHandler(1));
-        handlerChain.add(new TestHandler(2));
+        handlerChain.add(new TestHandler(150));
         handlerChain.sort(Comparator.comparingInt(BaseHandler::getOrder));
 
         Handler chain = buildCoF(handlerChain);
 
         // 构造请求
-        Request request = new StandardRequest("jack", Context.Privilege.CREATE_ORDER.getName());
+        Request request = new StandardRequest("lucy", Context.Privilege.CREATE_ORDER.getName());
         Response response = new StandardResponse();
         
         chain.handle(request, response);

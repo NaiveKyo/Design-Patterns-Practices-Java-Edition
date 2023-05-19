@@ -11,7 +11,7 @@ public class TestHandler extends BaseHandler {
 
     @Override
     protected boolean doHandle(Request request, Response response) {
-        response.write(String.format("[%s : test handler] ", this.getClass().getSimpleName()));
+        response.write(String.format("[%s : test handler.] ", this.getClass().getSimpleName()));
         return false;
     }
 
