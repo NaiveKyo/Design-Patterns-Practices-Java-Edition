@@ -10,8 +10,6 @@ public interface Handler {
     
     void setNext(Handler h);
     
-    Handler getNext();
-    
     void handle(Request request, Response response);
     
 }

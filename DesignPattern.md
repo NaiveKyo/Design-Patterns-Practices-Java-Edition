@@ -2727,3 +2727,484 @@ Java 的动态代理机制是基于接口实现的，主要目的是为了代理
 
 ### Problem
 
+假设需要开发一个订单管理系统，你希望对系统访问进行限制，只允许认证的用户创建订单，拥有所有权限的用户可以管理所有订单。
+
+初步规划后，你会意识到系统处理流程可以简化为多个步骤，一旦收到含有用户凭据的请求，应用程序首先可以尝试认证该用户，检查是否有相关的执行权限，如果用户没有对应权限则无需后续处理步骤；
+
+接下来随着时间的发展，系统功能也越来越完善，包括对请求数据的安全检查工作、日志打印工作、提供缓存数据等等功能，这些检查代码使对应的方法变得臃肿，必须要进行重构；
+
+### Solution
+
+针对前面提到的问题，可以使用职责链模式来解决这种问题，职责链会将特定行为转换为名为 Handler（处理者）的独立对象。问题中的每个检查步骤都可以抽取为仅有单个方法的类，在特定方法中对请求进行处理。
+
+CoR 建议你将这些处理者连成一条链，链上的每个处理者都有一个成员变量用来保存对于下一个处理者的引用。除了处理请求外，Handler 还要负责将请求沿着链传递。请求在链上移动，直至所有处理者都有机会处理该请求。
+
+<font style='color:green'>最重要的是：</font>处理者可以决定不再沿着链传递请求，这样就可以高效地取消所有后续处理步骤。
+
+在订单管理系统中，处理者首先判断自己能够处理该请求，如果可以处理，在处理工作完成后可以决定是否继续将请求沿着链传递。如果请求中含有正确的数据，那么所有处理者都将执行自己的主要行为。
+
+注意，这种方式下所有 Handler 都有机会处理这个请求，还有一种更经典的方式就是一个请求只会被一个 Handler 处理，这种模式下处理者收到请求后自行决定是否能够对其进行处理，如果自己能够处理，处理者就不会继续传递请求。此模式下那么没有任何处理者处理请求，要么最多只有一个处理者处理请求。在处理图形用户界面元素栈中的事件时，此种方式非常常见。
+
+例如，当用户点击某个按钮时，按钮产生的事件将沿着 GUI 元素链进行传递，最开始是按钮的容器（如窗体或者面板），直至应用程序主窗口。链上第一个能够处理该事件的元素会对其进行处理。此外，这个场景还有一个值得关注的地方：GUI 元素一般以树状结构组成，也就意味着我们总能从对象树种取出链来。
+
+
+
+### Structure
+
+职责链模式的主要角色如下：
+
+- 处理者（Handler）声明了所有具体处理者的通用接口。该接口通常仅包含单个方法用于处理请求，但有时还会包含一个设置链中下一个处理者的方法；
+- 基础处理者（BaseHandler）是一个可选的类，可以将所有处理者共用的代码放在其中；
+
+通常情况下，该类中定义了一个保存对于下个处理者引用的成员变量。客户端可以通过接受处理者的构造函数或者 set 方法来创建链。该类还可以实现默认的处理行为：比如确保存在下个处理者才会将请求传递给它。
+
+- 具体处理者（Concrete Handlers）包含处理请求的实际代码。每个处理者接收到请求后，都必须决定是否进行处理，以及是否沿着链传递请求。
+
+处理者通常是独立且不可变的，需要通过构造函数一次性地获取所有必要的数据；
+
+- 客户端（Client）客户根据程序逻辑一次性或者动态地生成链。
+
+
+
+### Example
+
+#### Order-Manage
+
+这里使用 Java 语言模拟实现前面提到的订单管理系统需求：
+
+项目包结构：
+
+```
+-- project
+  -- container
+  	 Context.java
+  -- handler
+  	 Hanlder.java
+  	 BaseHandler.java
+  	 TestHandler.java
+  	 RecordLogHandler.java
+  	 CheckPrivilegeHandler.java
+  -- request
+  	 Request.java
+  	 StandardRequest.java
+  -- response
+  	 Response.java
+  	 StandardResponse.java
+  -- support
+  	 Order.java
+  RequestHandlerChainTestClient.java
+```
+
+Handler：
+
+```java
+/**
+ * 处理者接口, 定义通用行为
+ */
+public interface Handler {
+    
+    void setNext(Handler h);
+    
+    void handle(Request request, Response response);
+    
+}
+```
+
+BaseHandler：
+
+```java
+public class BaseHandler implements Handler, Order {
+    
+    private Handler next;
+    
+    private int order;
+
+    public BaseHandler(int order) {
+        this.order = order;
+    }
+
+    @Override
+    public void setNext(Handler h) {
+        this.next = h;
+    }
+
+    @Override
+    public void handle(Request request, Response response) {
+        // 将请求沿着链传递, 达到末尾且没有被终止传递则刷新响应
+        boolean support = this.supportHandle(request);
+        if (support) {
+            boolean done = this.doHandle(request, response);
+            if (!done) {
+                if (this.next != null)
+                    this.next.handle(request,response);
+                else {
+                    response.write("done.");
+                    response.flush();
+                }
+            } else {
+                response.write("done.");
+                response.flush();
+            }
+        } else {
+            if (this.next != null)
+                this.next.handle(request, response);
+            else {
+                response.write("done.");
+                response.flush();
+            }
+        }
+    }
+
+    /**
+     * template method: 处理请求和响应
+     * @param request request
+     * @param response response
+     * @return 是否终止请求传递, true/false
+     */
+    protected boolean doHandle(Request request, Response response) {
+        return false;
+    }
+
+    /**
+     * 判断当前 Handler 是否能够处理该请求
+     * @param request 请求
+     * @return true/false
+     */
+    protected boolean supportHandle(Request request) {
+        return false;
+    }
+
+    @Override
+    public int getOrder() {
+        return this.order;
+    }
+    
+}
+```
+
+TestHandler：
+
+```java
+public class TestHandler extends BaseHandler {
+    
+    public TestHandler(int order) {
+        super(order);
+    }
+
+    @Override
+    protected boolean doHandle(Request request, Response response) {
+        response.write(String.format("[%s : test handler.] ", this.getClass().getSimpleName()));
+        return false;
+    }
+
+    @Override
+    protected boolean supportHandle(Request request) {
+        return true;
+    }
+}
+```
+
+RecordLogHandler：
+
+```java
+public class RecordLogHandler extends BaseHandler {
+    
+    public RecordLogHandler(int order) {
+        super(order);
+    }
+
+    @Override
+    protected boolean doHandle(Request request, Response response) {
+        response.write(String.format("[%s : record operation log.] ", this.getClass().getSimpleName()));
+        System.out.printf("[LOGGER]: %s [user]: %s [do]: %s%n", this.getClass().getSimpleName(), request.getUsername(), request.getPrivilege());
+        
+        return false;
+    }
+
+    @Override
+    protected boolean supportHandle(Request request) {
+        return true;
+    }
+    
+}
+```
+
+CheckPrivilegeHandler：
+
+```java
+public class CheckPrivilegeHandler extends BaseHandler {
+    
+    public CheckPrivilegeHandler(int order) {
+        super(order);
+    }
+
+    @Override
+    protected boolean doHandle(Request request, Response response) {
+        // 鉴权
+        if (Context.illegalPrivilege(request.getPrivilege())) {
+            if (Context.checkUserCertified(request.getUsername(), request.getPrivilege())) {
+                response.write(String.format("[%s : pass.] ", this.getClass().getSimpleName()));
+                return false;
+            } else {
+                response.write(String.format("[%s : Unauthorized operation!] ", this.getClass().getSimpleName()));
+            }
+        } else {
+            response.write(String.format("[%s : Illegal privilege!] ", this.getClass().getSimpleName()));
+        }
+        
+        return true;
+    }
+    
+    @Override
+    protected boolean supportHandle(Request request) {
+        // 假设当前 Handler 要处理携带有 privilege 的 Request
+        return request.getPrivilege() != null && !"".equals(request.getPrivilege());
+    }
+    
+}
+```
+
+请求抽象：
+
+```java
+/**
+ * 对请求的抽象, 简单的认为一个请求应当包括用户和要进行的操作
+ */
+public interface Request {
+    
+    String getUsername();
+    
+    String getPrivilege();
+    
+}
+
+/**
+ * 对请求的包装, 后续可以接着扩展该类
+ */
+public class StandardRequest implements Request {
+
+    /**
+     * 一次请求需要携带用户信息
+     */
+    private String username;
+
+    /**
+     * 要进行的操作对应的权限标识符
+     */
+    private String doPrivilege;
+
+    public StandardRequest(String username, String doPrivilege) {
+        this.username = username;
+        this.doPrivilege = doPrivilege;
+    }
+
+    @Override
+    public String getUsername() {
+        return username;
+    }
+
+    @Override
+    public String getPrivilege() {
+        return doPrivilege;
+    }
+}
+```
+
+响应抽象：
+
+```java
+/**
+ * 对响应的抽象
+ */
+public interface Response {
+
+    /**
+     * 打印响应信息
+     */
+    void flush();
+
+    /**
+     * 写入响应消息
+     * @param message 提示信息
+     */
+    void write(String message);
+    
+}
+
+/**
+ * 标准响应实现
+ */
+public class StandardResponse implements Response {
+    
+    private StringBuilder builder = new StringBuilder();
+    
+    @Override
+    public void flush() {
+        // 这里简单的把信息打印到控制台
+        System.out.println(builder);
+    }
+
+    @Override
+    public void write(String message) {
+        this.builder.append(message);
+    }
+    
+}
+```
+
+support：提供处理者排序机制
+
+```java
+/**
+ * 顺序, 值越低则越靠前
+ */
+public interface Order {
+
+    /**
+     * 获取序号
+     * @return 序号
+     */
+    int getOrder();
+    
+    int HIGHEST_ORDER = Integer.MIN_VALUE;
+    
+    int LOWEST_ORDER = Integer.MAX_VALUE;
+    
+}
+```
+
+模拟程序执行容器即上下文：
+
+```java
+/**
+ * 容器上下文, 包含各类资源
+ */
+public class Context {
+    
+    private static List<UserSubject> certifiedUser;
+    
+    static {
+        // 假设应用程序上下文中已经存在一组认证过的用户
+        certifiedUser = new ArrayList<>();
+        certifiedUser.add(new UserSubject("lucy", Arrays.asList(Privilege.values())));
+        certifiedUser.add(new UserSubject("jack", Collections.singletonList(Privilege.LIST_ORDER)));
+    }
+
+    /**
+     * 检验权限标识是否有效
+     * @param permissionIdentify 权限标识符
+     * @return 检测结果 true/false
+     */
+    public static boolean illegalPrivilege(String permissionIdentify) {
+        if (permissionIdentify == null || "".equals(permissionIdentify))
+            return false;
+        Privilege privilege = Arrays.stream(Privilege.values()).filter(p -> p.getName().equals(permissionIdentify)).findAny().orElse(null);
+        return privilege != null;
+    }
+
+    /**
+     * 校验用户的操作是否被授权
+     * @param username  用户名
+     * @param privilege 要执行的操作
+     * @return true/false
+     */
+    public static boolean checkUserCertified(String username, String privilege) {
+        UserSubject subject = certifiedUser.stream().filter(user -> user.getName().equals(username)).findFirst().orElse(null);
+        if (subject == null)
+            return false;
+        return subject.getPrivileges().stream().anyMatch(p -> p.getName().equals(privilege));
+    }
+    
+    public enum Privilege {
+        CREATE_ORDER("创建订单"), DELETE_ORDER("删除订单"),
+        LIST_ORDER("展示订单"), MODIFY_ORDER("修改订单");
+        
+        private String name;
+
+        Privilege(String name) {
+            this.name = name;
+        }
+
+        public String getName() {
+            return name;
+        }
+    }
+
+    /**
+     * 用户主体, 包含用户名和拥有的权限
+     */
+    static class UserSubject {
+        private String name;
+        private List<Privilege> privileges;
+
+        public UserSubject(String name, List<Privilege> privileges) {
+            this.name = name;
+            this.privileges = privileges;
+        }
+
+        public void setPrivileges(List<Privilege> privileges) {
+            this.privileges = privileges;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public List<Privilege> getPrivileges() {
+            return privileges;
+        }
+    }
+}
+```
+
+Client：
+
+```java
+public class RequestHandlerChainTestClient {
+    
+    public static Handler buildCoF(List<BaseHandler> chain) {
+        Handler head = chain.get(0);
+        Handler h = head;
+        for (int i = 1; i < chain.size(); i++) {
+            BaseHandler cur = chain.get(i);
+            h.setNext(cur);
+            h = cur;
+        }
+        return head;
+    }
+    
+    public static void main(String[] args) {
+        // 构造职责链
+        List<BaseHandler> handlerChain = new ArrayList<>();
+        handlerChain.add(new CheckPrivilegeHandler(100));
+        handlerChain.add(new RecordLogHandler(1));
+        handlerChain.add(new TestHandler(150));
+        handlerChain.sort(Comparator.comparingInt(BaseHandler::getOrder));
+
+        Handler chain = buildCoF(handlerChain);
+
+        // 构造请求
+        Request request = new StandardRequest("lucy", Context.Privilege.CREATE_ORDER.getName());
+        Response response = new StandardResponse();
+        
+        chain.handle(request, response);
+    }
+}
+```
+
+lucy 具有全部的权限，预期输出：
+
+```
+[LOGGER]: RecordLogHandler [user]: lucy [do]: 创建订单
+[RecordLogHandler : record operation log.] [CheckPrivilegeHandler : pass.] [TestHandler : test handler.] done.
+```
+
+jack 则不具备创建订单的权限，预期输出：
+
+```
+[LOGGER]: RecordLogHandler [user]: jack [do]: 创建订单
+[RecordLogHandler : record operation log.] [CheckPrivilegeHandler : Unauthorized operation!] done.
+```
+
+
+

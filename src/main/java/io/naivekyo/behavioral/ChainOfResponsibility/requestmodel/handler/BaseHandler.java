@@ -20,17 +20,11 @@ public class BaseHandler implements Handler, Order {
     }
 
     @Override
-    public Handler getNext() {
-        return this.next;
-    }
-
-    @Override
     public void handle(Request request, Response response) {
         // 将请求沿着链传递, 达到末尾且没有被终止传递则刷新响应
         boolean support = this.supportHandle(request);
-        boolean done;
         if (support) {
-            done = this.doHandle(request, response);
+            boolean done = this.doHandle(request, response);
             if (!done) {
                 if (this.next != null)
                     this.next.handle(request,response);

@@ -39,7 +39,7 @@ public class RequestHandlerChainTestClient {
         Handler chain = buildCoF(handlerChain);
 
         // 构造请求
-        Request request = new StandardRequest("lucy", Context.Privilege.CREATE_ORDER.getName());
+        Request request = new StandardRequest("jack", Context.Privilege.CREATE_ORDER.getName());
         Response response = new StandardResponse();
         
         chain.handle(request, response);
