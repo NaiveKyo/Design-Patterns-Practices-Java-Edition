@@ -2772,7 +2772,7 @@ CoR 建议你将这些处理者连成一条链，链上的每个处理者都有�
 
 这里使用 Java 语言模拟实现前面提到的订单管理系统需求：
 
-项目包结构：
+项目结构：
 
 ```
 -- project
@@ -3208,3 +3208,283 @@ jack 则不具备创建订单的权限，预期输出：
 
 
 
+#### GUI-Application
+
+在前面提到了关于图形界面元素树结构的问题，通常图形界面中的所有元素是按照树状结构生成的，每个节点上的事件可以沿着树的分支向上或向下传递，这就意味着我们总能从树状结构中抽取出链来。
+
+（比如我们比较熟悉的 html 文件的 DOM 树，以及事件冒泡机制。）
+
+下面来演示一下通过监听特定元素的 F1 键盘按压事件，来显示提示文本的场景。
+
+结合组合模式和职责链模式解决该问题：
+
+职责链中的 Handler：
+
+```java
+/**
+ * Handler 接口声明处理请求的方法 <br/>
+ * 这里是显示提示信息
+ */
+public interface ComponentWithContextualHelp {
+    void showHelp();
+}
+```
+
+BaseHandler + 普通组件：
+
+```java
+public abstract class Component implements ComponentWithContextualHelp {
+    
+    private String tooltipText;
+
+    /**
+     * 组件容器作为处理者链中的下一个处理者
+     */
+    protected Container container;
+
+    public void setTooltipText(String tooltipText) {
+        this.tooltipText = tooltipText;
+    }
+
+    /**
+     * 如果当前组件设置了帮助文字, 那它将直接显示提示文字; 如果当前组件没有提示文字, 并且其父容器是存在的, 就将请求传递给其容器
+     */
+    @Override
+    public void showHelp() {
+        if (this.tooltipText != null && !"".equals(this.tooltipText)) {
+            // 显示提示信息
+            System.out.println(this.tooltipText);
+        } else {
+            if (this.container != null)
+                this.container.showHelp();
+        }
+    }
+}
+```
+
+复杂组件：
+
+```java
+/**
+ * 容器可以将简单组件或者其他容器作为子项目. 链关系将在这里建立, 且该类从父类继承 showHelp 行为
+ */
+public abstract class Container extends Component {
+    
+    protected List<Component> children;
+    
+    public void add(Component child) {
+        this.children.add(child);
+        child.container = this;
+    }
+    
+}
+```
+
+ConcreteHandler + 复杂组件：
+
+```java
+/**
+ * 复杂组件有可能会重写默认实现, 但是如果无法以新的方式来提供帮助文字, 那么组件总是还能调用基础实现
+ */
+public class Panel extends Container {
+    
+    private String modalHelpText;
+    
+    private int x, y, width, height;
+
+    public Panel(int x, int y, int width, int height) {
+        this.x = x;
+        this.y = y;
+        this.width = width;
+        this.height = height;
+    }
+
+    public void setModalHelpText(String modalHelpText) {
+        this.modalHelpText = modalHelpText;
+    }
+
+    @Override
+    public void showHelp() {
+        if (this.modalHelpText != null && !"".equals(this.modalHelpText)) {
+            // 显示包含帮助文字的模态窗口
+            System.out.println("modal help text: " + this.modalHelpText);
+        } else 
+            super.showHelp();
+    }
+}
+```
+
+```java
+public class Dialog extends Container {
+    
+    private String title;
+    
+    private String wikiPageURL;
+
+    public Dialog(String title) {
+        this(title, null);
+    }
+
+    public Dialog(String title, String wikiPageURL) {
+        this.title = title;
+        this.wikiPageURL = wikiPageURL;
+    }
+
+    public void setWikiPageURL(String wikiPageURL) {
+        this.wikiPageURL = wikiPageURL;
+    }
+
+    @Override
+    public void showHelp() {
+        if (this.wikiPageURL != null) {
+            // do something
+        } else 
+            super.showHelp();
+    }
+}
+```
+
+叶子节点：
+
+```java
+/**
+ * 普通按钮组件可以使用帮助操作的默认实现
+ */
+public class Button extends Component {
+    
+    private int x, y, width, height;
+    
+    private String text;
+
+    public Button(int x, int y, int width, int height, String text) {
+        this.x = x;
+        this.y = y;
+        this.width = width;
+        this.height = height;
+        this.text = text;
+    }
+    
+}
+```
+
+Client：
+
+```java
+public class GUIApplicationTestClient {
+    
+    public void createUI() {
+        Dialog dialog = new Dialog("测试对话框");
+        dialog.setWikiPageURL("http://......");
+
+        Panel panel = new Panel(0, 0, 400, 800);
+        panel.setModalHelpText("本面板用于......");
+
+        Button ok = new Button(250, 760, 50, 20, "确认");
+        ok.setTooltipText("这是一个确认按钮...");
+
+        Button cancel = new Button(320, 760, 50, 20, "取消");
+        cancel.setTooltipText("这是一个取消按钮...");
+        
+        panel.add(ok);
+        panel.add(cancel);
+        
+        dialog.add(panel);
+    }
+    
+    /**
+     * 模拟在某个界面元素上按下键盘 F1 键造成的回调
+     */
+    public void onF1KeyPress() {
+        Component component = this.getComponentAtMouseCoords();
+        component.showHelp();
+    }
+
+    public Component getComponentAtMouseCoords() {
+        // do something
+        return null;
+    }
+
+}
+```
+
+### Scenario
+
+- 当程序需要使用不同方式处理不同种类的请求，而且请求类型和顺序是未知的时候，可以使用职责链模式。
+
+该模式会将多个处理者连接成一条链。接收到请求后，它会 "询问" 每个处理者是否能够对其进行处理。这样所有处理者都有机会来处理请求；
+
+- 当必须按照顺序执行多个处理者时，可以使用该模式。
+
+无论以何种顺序将处理者连接成一条链，所有请求都会严格按照顺序通过链上的处理者；
+
+- 如果所需处理者及其顺序必须在运行时进行改变，可以使用职责链模式。
+
+在处理者类中存在对引用变量的 set 方法，可以动态的插入或者移除处理者或者改变其顺序；
+
+### Check List
+
+实现方式：
+
+（1）声明处理者接口并描述请求处理方法的签名；
+
+确定客户端如何将请求传递给方法。最灵活的方式是将请求转换为某种对象，然后将其以参数的方式传递给处理函数；
+
+（2）为了在具体处理者中消除重复的代码，可以根据处理者接口创建抽象处理者基类；
+
+该类需要有一个成员变量来存储指向链上下个处理者的引用。你可以将其设置为不可变类。但如果你打算在运行时对链进行改变，则需要定义一个设定方法来修改引用成员变量的值。
+
+为了使用方便，你还可以实现处理方法的默认行为。如果还有剩余对象，该方法会将请求传递给下个对象。具体处理者还能够通过调用父对象的方法来使用这一行为。
+
+（3）依次创建具体处理者子类并实现其处理方法。每个处理者在接收到请求后都必须做出两个决定：
+
+- 是否自行处理这个请求；
+- 是否将该请求沿着链进行传递；
+
+（4）客户端可以自行组装链，或者从其他对象处获得预先组装好的链。在后一种情况下，你必须实现工厂类以根据配置或环境设置来创建链。
+
+（5）客户端可以触发链中的任意处理者，而不仅仅是第一个。请求将通过链进行传递，直至某个处理者拒绝继续传递，或者请求到达链尾。
+
+（6）由于链的动态性，客户端需要准备好处理以下情况：
+
+- 链中可能只有单个链接；
+- 部分请求可能无法到达链尾；
+- 其他请求可能直到链尾都未被处理；
+
+
+
+### Advantage/Disadvantage
+
+优点：
+
+- 可以控制请求的处理顺序；
+- 单一职责原则：对发起操作和执行操作的类进行解耦；
+- 开闭原则：可以在不更改现有代码的情况下在程序中新增处理者；
+
+缺点：
+
+- 部分请求可能未被处理；
+
+### Rules of thumb
+
+与其他模式的关系：
+
+- CoR、Command、Mediator（中介者）和 Observer（观察者）用于处理请求发送者和接收者之间的不同连接方式；
+  - Chain of Responsibility 按照顺序将请求动态传递给一系列的潜在接收者，直至其中一名接收者对请求进行处理；
+  - Command 在发送者和请求者之间建立单向连接；
+  - Mediator 清除了发送者和请求者之间的直接连接，强制它们通过一个中介对象进行间接沟通；
+  - Observer 允许接收者动态地订阅或取消接收请求。
+- CoR 通常和 Composite（组合模式）结合使用。在这种情况下，叶组件接收到请求后，可以将请求沿包含全体父组件的链一直传递至对象树的底部；
+- CoR 的管理者可以使用 Command 模式实现。在这种情况下，你可以对由请求代表的同一个上下文对象执行许多不同的操作；
+
+还有另外一种实现方式，那就是请求自身就是一个命令对象。在这种情况下，你可以对由一系列不同上下文连接而成的链执行相同的操作。
+
+- CoR 和 Decorator 模式的类结构非常类似。两者都依赖递归组合将需要执行的操作传递给一系列对象。但是，两者有几点重要的不同之处。
+  - CoR 的管理者可以相互独立地执行一切操作，还可以随时停止传递请求。另一方面，各种装饰可以在遵循基本接口的情况下扩展对象的行为。此外，装饰无法中断请求的传递。
+
+
+
+## Command
+
+命令模式，又称动作、事务、Action、Transaction、Command；
+
+命令是一种行为型设计模式，可以将请求转换为一个包含与请求相关的所有信息的独立对象。该转换让你能够根据不同的请求将方法参数化、延迟请求执行或者将其放入队列中，且能够实现可撤销操作。
