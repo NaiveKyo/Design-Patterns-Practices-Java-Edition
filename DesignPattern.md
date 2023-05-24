@@ -3511,8 +3511,744 @@ public class GUIApplicationTestClient {
 
 ### Example
 
-考虑这样的场景：正在开发一块文本编辑器应用，准备为其提供一组按钮用于实现常规的复制/粘贴/剪切/撤销操作。
+考虑这样的场景：正在开发一款文本编辑器应用，准备为其提供一组按钮用于实现常规的复制/粘贴/剪切/撤销操作。
 
 按照常规的实现思路，首先我们会定义一个简单的 Button 基类，然后根据不同的使用场景通过扩展该类来实现不同的功能。这张方式可能会产生大量的重复代码，拿复制这一操作来讲，可能菜单栏里有一个按钮、某个对话框里也有一个按钮，功能都是复制，此时两者的代码逻辑其实是差不多的，但是 Button 的实现类却不同，MeanCopyButton、DialogCopyButton 等等。有些 GUI 类也会和业务逻辑耦合，此时按钮的回调方法就会更加复杂。
 
-通常软件开发会将关注点进行分离，而这往往会导致软件的分层。
+通常软件开发会将关注点进行分离，而这往往会导致软件的分层。比如在开发具有图形界面的程序时，一层负责用户图形界面，一层负责业务逻辑。GUI 层负责在屏幕上渲染美观的图形，捕获所有输入并显示用户和程序工作的结果。当需要完成一些重要内容时，GUI 层则会将工作委派给业务逻辑底层。
+
+这在代码中看上去就像这样：一个 GUI 对象传递一些参数来调用一个业务逻辑对象。这个过程通常被描述为一个对象发送请求给另一个对象。
+
+命令模式建议 GUI 对象不直接提交这些请求。你应该将请求的所有细节（例如调用的对象、方法名称和参数列表）抽取出来组成命令类，该类中仅包含一个用于触发请求的方法。
+
+命令对象负责连接不同的 GUI 和业务逻辑对象。此后，GUI 对象无需了解业务逻辑对象是否获得了请求，也无需了解其对请求进行处理的方式。GUI 对象触发命令即可，命令对象会自行处理所有细节工作。
+
+首先定义命令接口后，让所有的命令类实现该接口。该接口通常只有一个无参方法用于触发具体的命令，触发者对象只需和该接口交互而无需和具体的命令类耦合，这样使用同一请求发送者就可以执行不同的命令。还有一个额外的好处就是可以在运行时动态切换连接至发送者的命令对象，从而改变发送者的行为。
+
+注意，命令接口中只有一个无参方法，触发者和该接口交互，那么具体的命令如何获取到业务逻辑所需参数呢？答案是，通常会在命令接口中做一些配置，比如注入应用程序上下文或者预置所有的参数等等，让具体的命令可以自行获得所需参数。
+
+类比现实世界：在餐馆点餐就是一个很好的例子，顾客进入餐馆浏览菜单勾选所需的饭菜，通知服务员，服务员将菜单交给后厨，厨师按照顾客点餐顺序提供饭菜，服务员将饭菜提供给客户。
+
+在这个过程中菜单就是命令接口，其中已经预置了所有的参数，服务员只需将菜单交给厨师，厨师根据菜单中勾选的部分进行制作，最后完成顾客的需求。
+
+回到文本编辑器的案例，看如下代码实现：
+
+Command 抽象基类，定义通用接口：
+
+```java
+public abstract class Command {
+    
+    private Editor editor;
+    
+    private String backup;
+
+    public Command(Editor editor) {
+        this.editor = editor;
+    }
+
+    public Editor getEditor() {
+        return editor;
+    }
+
+    public String getBackup() {
+        return backup;
+    }
+
+    public void backup() {
+        this.backup = this.editor.getTextField().getText();
+    }
+    
+    public void undo() {
+        this.editor.getTextField().setText(this.backup);
+    }
+
+    /**
+     * 通过的触发命令执行的方法
+     * @return 是否执行
+     */
+    public abstract boolean execute();
+    
+}
+```
+
+具体命令：
+
+拷贝：
+
+```java
+public class CopyCommand extends Command {
+    
+    public CopyCommand(Editor editor) {
+        super(editor);
+    }
+
+    @Override
+    public boolean execute() {
+        this.getEditor().setClipboard(this.getEditor().getTextField().getSelectedText());
+        return false;
+    }
+    
+}
+```
+
+剪切：
+
+```java
+public class CutCommand extends Command {
+    
+    public CutCommand(Editor editor) {
+        super(editor);
+    }
+
+    @Override
+    public boolean execute() {
+        if (this.getEditor().getTextField().getSelectedText().isEmpty())
+            return false;
+        this.backup();
+        
+        String source = this.getEditor().getTextField().getText();
+        this.getEditor().setClipboard(this.getEditor().getTextField().getSelectedText());
+        this.getEditor().getTextField().setText(this.cutString(source));
+        return true;
+    }
+    
+    private String cutString(String source) {
+        String start = source.substring(0, this.getEditor().getTextField().getSelectionStart());
+        String end = source.substring(this.getEditor().getTextField().getSelectionEnd());
+        return start + end;
+    }
+}
+```
+
+粘贴：
+
+```java
+public class PasteCommand extends Command {
+    
+    public PasteCommand(Editor editor) {
+        super(editor);
+    }
+
+    @Override
+    public boolean execute() {
+        if (this.getEditor().getClipboard() == null || this.getEditor().getClipboard().isEmpty()) {
+            return false;
+        }
+        // 先备份当前状态
+        this.backup();
+        this.getEditor().getTextField().insert(this.getEditor().getClipboard(), this.getEditor().getTextField().getCaretPosition());
+        return true;
+    }
+}
+```
+
+命令历史记录：
+
+```java
+public class CommandHistory {
+    
+    private LinkedList<Command> history = new LinkedList<>();
+    
+    public void push(Command c) {
+        this.history.push(c);
+    }
+    
+    public Command pop() {
+        return this.history.pop();
+    }
+    
+    public boolean isEmpty() {
+        return this.history.isEmpty();
+    }
+    
+}
+```
+
+触发者：
+
+```java
+public class Editor {
+    
+    private JTextArea textField;
+    
+    private String clipboard;
+    
+    private CommandHistory history = new CommandHistory();
+    
+    public void init() {
+        JFrame frame = new JFrame("Text editor");
+        JPanel content = new JPanel();
+        frame.setContentPane(content);
+        frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+        this.textField = new JTextArea();
+        this.textField.setLineWrap(true);
+        content.add(textField);
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        JButton ctrlC = new JButton("Ctrl+C");
+        JButton ctrlX = new JButton("Ctrl+X");
+        JButton ctrlV = new JButton("Ctrl+V");
+        JButton ctrlZ = new JButton("Ctrl+Z");
+        Editor editor = this;
+        ctrlC.addActionListener(new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                executeCommand(new CopyCommand(editor));
+            }
+        });
+        ctrlX.addActionListener(new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                executeCommand(new CutCommand(editor));
+            }
+        });
+        ctrlV.addActionListener(new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                executeCommand(new PasteCommand(editor));
+            }
+        });
+        ctrlZ.addActionListener(new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                undo();
+            }
+        });
+        buttons.add(ctrlC);
+        buttons.add(ctrlX);
+        buttons.add(ctrlV);
+        buttons.add(ctrlZ);
+        content.add(buttons);
+        
+        frame.setSize(450, 200);
+        frame.setLocationRelativeTo(null);
+        frame.setVisible(true);
+    }
+    
+    private void executeCommand(Command command) {
+        if (command.execute()) {
+            this.history.push(command);
+        }
+    }
+    
+    private void undo() {
+        if (this.history.isEmpty())
+            return;
+
+        Command command = this.history.pop();
+        if (command != null) 
+            command.undo();
+    }
+
+    public JTextArea getTextField() {
+        return textField;
+    }
+
+    public String getClipboard() {
+        return clipboard;
+    }
+
+    public void setClipboard(String clipboard) {
+        this.clipboard = clipboard;
+    }
+}
+```
+
+测试 Client：
+
+```java
+public class CommandTestClient {
+    
+    public static void main(String[] args) {
+        Editor editor = new Editor();
+        editor.init();
+    }
+    
+}
+```
+
+### Scenario
+
+（1）如果需要通过操作来参数化对象，可以使用命令模式；
+
+命令模式可将特定的方法调用转化为独立对象。这一改变也带来了许多有趣的应用：你可以将命令作为方法的参数进行传递、将命令保存在其他对象中，或者在运行时切换已连接的命令等。
+
+（2）如果需要将操作放入队列中、操作的执行或者远程执行操作，可以使用命令模式；
+
+同其他对象一样，命令也可以实现序列化（序列化的意思是转化为字符串），从而能方便地写入文件或数据库中。一段时间后，该字符串可被恢复成为最初的命令对象。因此，你可以延迟或计划命令的执行。但其功能远不止如此！使用同样的方式，你还可以将命令放入队列、记录命令或者通过网络发送命令。
+
+（3）实现操作回滚功能，可以使用命令模式；
+
+尽管有很多方法可以实现撤销和恢复功能，但命令模式可能是其中最常用的一种。为了能够回滚操作，你需要实现已执行操作的历史记录功能。命令历史记录是一种包含所有已执行命令对象及其相关程序状态备份的栈结构。
+
+这种方法有两个缺点。首先，程序状态的保存功能并不容易实现，因为部分状态可能是私有的。你可以使用备忘录（Memento）模式来在一定程序上解决这个问题；
+
+其次，备份状态可能会占用大量内存。因此，有时你需要借助另一种实现方式：命令无需恢复原始状态，而是执行反向操作。反向操作也有代价：它可能会很难甚至是无法实现。
+
+### Check List
+
+实现方式：
+
+（1）声明仅有一个执行方法的命令接口。
+
+（2）抽取请求并使之成为实现命令接口的具体命令类。每个类都必须有一组成员变量来保存请求参数和对于实际接收者对象的引用。所有这些变量的数值都必须通过命令构造函数进行初始化。
+
+（3）找到担任发送者职责的类。在这些类中添加保存命令的成员变量。发送者只能通过命令接口与其命令进行交互。发送者自身通常并不创建命令对象，而是通过客户端代码获取。
+
+（4）修改发送者使其执行命令，而非直接将请求发送给接收者。
+
+（5）客户端必须按照以下顺序来初始化对象：
+
+- 创建接收者。
+- 创建命令，如有需要可将其关联至接收者。
+- 创建发送者并将其与特定命令关联。
+
+### Advantage/Disadvantage
+
+优点：
+
+- 符合单一职责原则，可以解耦触发和执行操作的类；
+- 符合开闭原则，可以在不修改已有客户端代码的情况下在程序中创建新的命令类；
+- 可以实现撤销和恢复功能。
+- 可以实现操作的延迟执行。
+- 可以将一组简单命令组合成一个复杂命令。
+
+缺点：
+
+- 代码可能会变得更加复杂，因为你在发送者和接收者之间增加了一个全新的层次。
+
+### Rules of thumb
+
+- Chain of Responsibility、Command、Mediator 和 Observer 用于处理请求发送者和接收者之间的不同连接方式：
+  - 职责链按照顺序将请求动态传递给一系列的潜在接收者，直至其中一名接收者对请求进行处理。
+  - 命令在发送者和请求者之间建立单向连接。
+  - 中介者清除了发送者和请求者之间的直接连接，强制它们通过一个中介对象进行间接沟通。
+  - 观察者允许接收者动态地订阅或取消接收请求。
+- 职责链的处理者可以使用命令模式实现。此种情况下，可以对由请求代表的同一个上下文对象执行很多不同的操作；
+
+还有另外一种实现方式，那就是请求自身就是一个命令对象。在这种情况下，你可以对由一系列不同上下文连接而成的链执行相同的操作。
+
+- 可以同时使用 Command 和 Memento 实现 "撤销"。在这种情况下，命令用于对目标对象执行各种不同的操作，备忘录用来保存一条命令执行前该对象的状态。
+- Command 和 Strategy 看起来很像，因为两者都能通过某些行为来参数化对象。但是，它们的意图有非常大的不同。
+  - 可以使用命令来将任何操作转换为对象。操作的参数将成为对象的成员变量。 你可以通过转换来延迟操作的执行、将操作放入队列、保存历史命令或者向远程服务发送命令等。
+  - 另一方面，策略通常可用于描述完成某件事的不同方式，让你能够在同一个上下文类中切换算法。
+- Prototype 可以用来保存 Command 的历史记录；
+- 可以将 Visitor（访问者）视为 Command 模式的加强版本，其对象可对不同类的多种对象执行操作。
+
+## Iterator
+
+迭代器是一种行为设计模式，让你能在不暴露集合底层数据结构的情况下遍历集合中所有元素。
+
+### Intent
+
+集合是编程中最常用的数据类型之一，它是一组对象的容器；大部分集合使用简单的列表存储元素，但是有些集合还会使用栈、树、图和其他复杂的数据结构；
+
+无论集合的构成方式如何，它都必须提供某种访问元素的方式，便于其他代码能够使用其中的元素。集合应提供一种能够遍历元素的方式，且保证它不会再遍历过程中重复访问同一个元素。
+
+如果集合基于列表，那么这项工作听起来仿佛很简单。但是如何去遍历复杂的数据结构中的元素呢？比如对于树结构而言，今天你需要使用深度优先算法来遍历树结构，明天可能需要使用广度优先算法；下周可能需要其他方式。
+
+不断向集合中添加遍历算法会模糊其“高效存储数据”的主要职责。此外，有些算法可能是根据特定应用订制的，将其加入泛型集合类中会显得非常奇怪。
+
+另一方面，使用多种集合的客户端代码可能并不关心存储数据的方式。不过由于集合提供不同的元素访问方式，你的代码将不得不与特定集合类进行耦合。
+
+### Solution
+
+迭代器模式的主要思想是将集合的遍历行为抽取为单独的迭代器对象。
+
+迭代器可实现多种遍历算法。多个迭代器对象可同时遍历同一个集合对象。
+
+迭代器通常会提供一个获取集合元素的基本方法。客户端可不断调用该方法直至它不返回任何内容，这意味着迭代器已经遍历了所有元素。
+
+所有迭代器必须实现相同的接口。这样一来，只要有合适的迭代器， 客户端代码就能兼容任何类型的集合或遍历算法。如果你需要采用特殊方式来遍历集合，只需创建一个新的迭代器类即可，无需对集合或客户端进行修改。
+
+### Structure
+
+迭代器模式拥有以下角色：
+
+（1）迭代器（Iterator）接口声明了遍历集合所需的操作：获取下一个元素、获取当前位置和重新开始迭代等。
+
+（2）具体迭代器（Concrete Iterator）实现遍历集合的一种特定算法。迭代器对象必须跟踪自身遍历的进度。这使得多个迭代器可以相互独立地遍历同一集合。
+
+（3）集合（Collection）接口声明一个或多个方法来获取与集合兼容的迭代器。请注意，返回方法的类型必须被声明为迭代器接口，因此具体集合可以返回各种不同种类的迭代器。
+
+（4）具体集合（Concrete Collections）会在客户端请求迭代器时返回一个特定的具体迭代器类实体。
+
+（5）客户端（Client）通过集合和迭代器的接口与两者进行交互。这样一来客户端无需与具体类进行耦合，允许同一客户端代码使用各种不同的集合和迭代器。
+
+客户端通常不会自行创建迭代器，而是会从集合中获取。但在特定情况下，客户端可以直接创建一个迭代器（例如当客户端需要自定义特殊迭代器时）。
+
+
+
+### Example
+
+#### Code Example
+
+考虑这样的例子，在社交网络中需要针对某个账户关联的特定关系的账户发送邮件，例如微信。抽取出的模型是这样的：
+
+社交网络抽象：
+
+```java
+/**
+ * 集合接口必须声明一个用于获取迭代器的工厂方法, 如果程序中有多个不同类型的迭代器, 也可以声明多个方法
+ */
+public interface SocialNetwork {
+    
+    ProfileIterator createFriendsIterator(String profileId);
+    
+    ProfileIterator createCoworkersIterator(String profileId);
+    
+}
+
+
+/**
+ * 具体的集合
+ */
+public class WeChat implements SocialNetwork {
+    
+    // 省略大量集合代码。。。
+    
+    // 模拟网络请求, 获取和特定 profile 关联的特定 type 的所有 profile
+    public Profile[] socialGraphRequest(String profileId, String type) {
+        // mock
+        return new Profile[] { 
+                new Profile("1", "111@hotmail.com"), 
+                new Profile("2", "222@gmail.com"),
+                new Profile("3", "333@qq.com")
+        };
+    }
+    
+    // 迭代器工厂方法
+    @Override
+    public ProfileIterator createFriendsIterator(String profileId) {
+        return new WebChatIterator(this, profileId, "friends");
+    }
+    
+    @Override
+    public ProfileIterator createCoworkersIterator(String profileId) {
+        return new WebChatIterator(this, profileId, "coworkers");
+    }
+    
+}
+```
+
+集合元素：
+
+```java
+/**
+ * 集合存储元素
+ */
+public class Profile {
+    
+    private String id;
+    
+    private String email;
+
+    public Profile(String id, String email) {
+        this.id = id;
+        this.email = email;
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+}
+```
+
+迭代器接口：
+
+```java
+/**
+ * 所有迭代器的通用接口
+ */
+public interface ProfileIterator {
+    
+    Profile getNext();
+    
+    boolean hasMore();
+    
+}
+```
+
+特定迭代器：
+
+```java
+public class WebChatIterator implements ProfileIterator {
+
+    /**
+     * 迭代器需要一个对目标集合的引用变量
+     */
+    private WeChat weChat;
+    
+    private String profileId;
+    
+    private String type;
+
+    /**
+     * 迭代器对象会独立于其他迭代器来遍历集合元素, 因此它必须保存迭代器的状态
+     */
+    private int currentPosition;
+    
+    private Profile[] cache;
+
+    public WebChatIterator(WeChat weChat, String profileId, String type) {
+        this.weChat = weChat;
+        this.profileId = profileId;
+        this.type = type;
+    }
+
+    private void lazyInit() {
+        if (this.cache == null)
+            this.cache = this.weChat.socialGraphRequest(profileId, type);
+    }
+    
+    @Override
+    public Profile getNext() {
+        if (hasMore()) {
+            return cache[this.currentPosition++];
+        }
+        return null;
+    }
+
+    @Override
+    public boolean hasMore() {
+        this.lazyInit();
+        return this.currentPosition < this.cache.length;
+    }
+    
+}
+```
+
+发邮件工具：
+
+```java
+public class SocialSpammer {
+    
+    public void send(ProfileIterator iterator, String message) {
+        while (iterator.hasMore()) {
+            Profile profile = iterator.getNext();
+            System.out.printf("SocialSpammer: -> %s -> %s%n", profile.getEmail(), message);
+        }
+    }
+}
+```
+
+测试 Client：
+
+```java
+public class IteratorApplicationTestClient {
+    
+    private SocialNetwork network;
+    
+    private SocialSpammer spammer;
+    
+    public void config() {
+        this.network = new WeChat();
+        this.spammer = new SocialSpammer();
+    }
+    
+    public void sendSpamToFriends(Profile profile) {
+        ProfileIterator iterator = this.network.createFriendsIterator(profile.getId());
+        this.spammer.send(iterator, "hello friend.");
+    }
+    
+    public void sendSpamToCoworkers(Profile profile) {
+        ProfileIterator iterator = this.network.createCoworkersIterator(profile.getId());
+        this.spammer.send(iterator, "hello coworker.");
+    }
+    
+    public static void main(String[] args) {
+        IteratorApplicationTestClient client = new IteratorApplicationTestClient();
+        client.config();
+        
+        Profile profile = new Profile("1", "xxx@cook.com");
+        
+        client.sendSpamToFriends(profile);
+    }
+}
+```
+
+#### Source Analysis
+
+看一下 Java 中 collection framework 使用的迭代器模式实现，这里以 List 为例：
+
+首先看迭代器接口：
+
+`java.uit.Iterator<E>`：
+
+```java
+public interface Iterator<E> {
+
+    boolean hasNext();
+    
+    E next();
+
+    default void remove() {
+        throw new UnsupportedOperationException("remove");
+    }
+
+    default void forEachRemaining(Consumer<? super E> action) {
+        Objects.requireNonNull(action);
+        while (hasNext())
+            action.accept(next());
+    }
+}
+```
+
+主要包含四方法，判断迭代器是否能够继续迭代、获取当前待迭代元素、移除当前带迭代元素、对剩余元素做操作。
+
+再看看集合框架中的可迭代标记：`java.lang.Iterable<T>`
+
+```java
+public interface Iterable<T> {
+
+    Iterator<T> iterator();
+
+    default void forEach(Consumer<? super T> action) {
+        Objects.requireNonNull(action);
+        for (T t : this) {
+            action.accept(t);
+        }
+    }
+
+    default Spliterator<T> spliterator() {
+        return Spliterators.spliteratorUnknownSize(iterator(), 0);
+    }
+}
+```
+
+包含三个方法分别是：用于创建迭代器的工厂方法、对当前可迭代对象中所有元素做操作、根据当前迭代器创建 Spliterator（Java 8 引入新特性，主要用于 Stream）；
+
+Java collection framework 的根接口：`java.util.Collection` 继承了 Iterable 接口，定义了创建迭代器的工厂方法：
+
+```java
+public interface Collection<E> extends Iterable<E> {
+ 	// ......
+    
+    Iterator<E> iterator();
+    
+    // ......
+    
+}
+```
+
+`java.util.AbstractCollection` 实现了 Collection 接口：
+
+```java
+public abstract class AbstractCollection<E> implements Collection<E> {
+    // ......
+    
+    public abstract Iterator<E> iterator();
+    
+ 	// ......   
+}
+```
+
+接着 `java.util.AbstractList` 继承 AbstractCollection 并对 Iterator 做了一些实现和补充：
+
+```java
+public abstract class AbstractList<E> extends AbstractCollection<E> implements List<E> {
+    // ......
+    // 用于保证集合迭代过程中 fail-fast, 会抛出 ConcurrentModificationExceptions
+    protected transient int modCount = 0;
+    
+    // 下面是针对 List 集合类型的迭代器
+    private class Itr implements Iterator<E> {
+        /**
+         * Index of element to be returned by subsequent call to next.
+         */
+        int cursor = 0;
+
+        /**
+         * Index of element returned by most recent call to next or
+         * previous.  Reset to -1 if this element is deleted by a call
+         * to remove.
+         */
+        int lastRet = -1;
+
+        /**
+         * The modCount value that the iterator believes that the backing
+         * List should have.  If this expectation is violated, the iterator
+         * has detected concurrent modification.
+         */
+        int expectedModCount = modCount;
+
+        public boolean hasNext() {
+            return cursor != size();
+        }
+
+        public E next() {
+            checkForComodification();
+            try {
+                int i = cursor;
+                E next = get(i);
+                lastRet = i;
+                cursor = i + 1;
+                return next;
+            } catch (IndexOutOfBoundsException e) {
+                checkForComodification();
+                throw new NoSuchElementException();
+            }
+        }
+
+        public void remove() {
+            if (lastRet < 0)
+                throw new IllegalStateException();
+            checkForComodification();
+
+            try {
+                AbstractList.this.remove(lastRet);
+                if (lastRet < cursor)
+                    cursor--;
+                lastRet = -1;
+                expectedModCount = modCount;
+            } catch (IndexOutOfBoundsException e) {
+                throw new ConcurrentModificationException();
+            }
+        }
+
+        final void checkForComodification() {
+            if (modCount != expectedModCount)
+                throw new ConcurrentModificationException();
+        }
+    }
+    
+    // ......
+}
+```
+
+可以看到  `java.util.AbstractList.Itr` 类实现了 Iterator 接口定义的通用行为；
+
+
+
+### Scenario
+
+使用场景：
+
+（1）当集合底层是非常复杂的数据结构时，且希望对客户端隐藏其复杂性，可以使用迭代器模式；
+
+（2）使用该模式可以减少程序中的重复代码；
+
+（3）如果希望代码能够遍历不同的甚至是无法预知的数据结构时，可以使用迭代器模式。
+
+### Rules of thumb
+
+（1）可以使用 Iterator 来遍历 Composite 树；
+
+（2）可以同时使用 Factory Method 和 Iterator 来让子类集合返回不同类型的迭代器，并使得迭代器和集合匹配；
+
+（3）可以同时使用 Memento 和 Iterator 来获取当前迭代器的状态，并且在需要的时候回滚；
+
+（4）可以同时使用 Visitor 和 Iterator 来遍历复杂的数据结构，并对其中的元素执行所需操作，即使这些元素所属的类完全不同；
+
+
+
+## Mediator
+
+中介者模式又称：调解者、控制器、Intermediary、Controller、Mediator。
+
+中介者模式是一种行为型设计模式，能够减少对象之间的混乱无需的依赖关系。该模式会限制对象之间的直接交互，迫使它们通过一个中介者对象进行合作；
+

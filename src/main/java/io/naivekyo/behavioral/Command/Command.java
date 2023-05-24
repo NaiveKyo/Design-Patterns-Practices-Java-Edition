@@ -25,7 +25,11 @@ public abstract class Command {
     public void undo() {
         this.editor.getTextField().setText(this.backup);
     }
-    
+
+    /**
+     * 通过的触发命令执行的方法
+     * @return 是否执行
+     */
     public abstract boolean execute();
     
 }
