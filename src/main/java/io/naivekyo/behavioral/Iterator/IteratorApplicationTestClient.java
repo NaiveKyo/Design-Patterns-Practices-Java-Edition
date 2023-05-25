@@ -3,7 +3,6 @@ package io.naivekyo.behavioral.Iterator;
 import io.naivekyo.behavioral.Iterator.collection.SocialNetwork;
 import io.naivekyo.behavioral.Iterator.collection.WeChat;
 import io.naivekyo.behavioral.Iterator.iterator.ProfileIterator;
-import io.naivekyo.behavioral.Iterator.iterator.WebChatIterator;
 
 public class IteratorApplicationTestClient {
     
