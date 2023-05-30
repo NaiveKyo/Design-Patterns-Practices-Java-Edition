@@ -1,5 +1,8 @@
 package io.naivekyo.behavioral.Memento.commands;
 
+import io.naivekyo.behavioral.Memento.editor.Editor;
+import io.naivekyo.behavioral.Memento.shape.Shape;
+
 import java.awt.*;
 
 /**
@@ -7,15 +10,24 @@ import java.awt.*;
  */
 public class ColorCommand implements Command {
     
-    private Color color;
+    private Editor editor;
     
+    private Color color;
+
+    public ColorCommand(Editor editor, Color color) {
+        this.editor = editor;
+        this.color = color;
+    }
+
     @Override
     public String getName() {
-        return null;
+        return "Colorize: " + this.color.toString();
     }
 
     @Override
     public void execute() {
-
+        for (Shape child : this.editor.getShapes().getSelected()) {
+            child.setColor(this.color);
+        }
     }
 }

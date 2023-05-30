@@ -4417,3 +4417,11 @@ public abstract class AbstractList<E> extends AbstractCollection<E> implements L
 
 ### Example
 
+见仓库代码；
+
+
+
+### Scenario
+
+（1）需要创建对象快照来恢复其之前的状态时，可以使用备忘录模式；
+

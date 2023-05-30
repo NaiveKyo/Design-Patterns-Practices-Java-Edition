@@ -146,4 +146,45 @@ public class CompoundShape extends BaseShape {
             child.unSelect();
         }
     }
+
+    public Shape getChildAt(int x, int y) {
+        for (Shape child : children) {
+            if (child.isInsideBounds(x, y)) {
+                return child;
+            }
+        }
+        return null;
+    }
+
+    public boolean selectChildAt(int x, int y) {
+        Shape child = getChildAt(x,y);
+        if (child != null) {
+            child.select();
+            return true;
+        }
+        return false;
+    }
+
+    public List<Shape> getSelected() {
+        List<Shape> selected = new ArrayList<>();
+        for (Shape child : children) {
+            if (child.isSelected()) {
+                selected.add(child);
+            }
+        }
+        return selected;
+    }
+
+    @Override
+    public void paint(Graphics graphics) {
+        if (isSelected()) {
+            enableSelectionStyle(graphics);
+            graphics.drawRect(getX() - 1, getY() - 1, getWidth() + 1, getHeight() + 1);
+            disableSelectionStyle(graphics);
+        }
+
+        for (Shape child : children) {
+            child.paint(graphics);
+        }
+    }
 }
