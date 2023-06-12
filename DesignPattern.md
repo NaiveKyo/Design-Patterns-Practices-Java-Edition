@@ -4494,7 +4494,7 @@ public abstract class AbstractList<E> extends AbstractCollection<E> implements L
 
 （1）一个用于存储订阅者对象引用的列表成员变量；
 
-（2）几个用于添加或删除该列表 中订阅者的公有方法。
+（2）几个用于添加或删除该列表中订阅者的公有方法。
 
 所有的订阅者都必须实现相同的接口，而发布者则通过该接口同订阅者交互。
 
@@ -4516,3 +4516,169 @@ public abstract class AbstractList<E> extends AbstractCollection<E> implements L
 
 ### Example
 
+订阅者：
+
+```java
+public interface EventListener {
+    void update(String eventType, File file);
+}
+```
+
+具体订阅者：
+
+```java
+public class LogOpenListener implements EventListener {
+    
+    private File log;
+
+    public LogOpenListener(String fileName) {
+        this.log = new File(fileName);
+    }
+
+    @Override
+    public void update(String eventType, File file) {
+        System.out.println("Save to log " + this.log + ": Some has performed " + eventType);
+    }
+}
+
+public class EmailNotificationListener implements EventListener {
+    
+    private String email;
+
+    public EmailNotificationListener(String email) {
+        this.email = email;
+    }
+
+    @Override
+    public void update(String eventType, File file) {
+        System.out.println("Email to " + this.email + ": Some has performed " + eventType);
+    }
+}
+```
+
+发布者：
+
+```java
+public class EventManager {
+    
+    Map<String, List<EventListener>> listeners = new HashMap<>();
+
+    public EventManager(String... operations) {
+        for (String operation : operations) {
+            this.listeners.put(operation, new ArrayList<>());
+        }
+    }
+    
+    public void subscribe(String eventType, EventListener listener) {
+        List<EventListener> users = this.listeners.get(eventType);
+        users.add(listener);
+    }
+    
+    public void unsubscribe(String eventType, EventListener listener) {
+        List<EventListener> users = this.listeners.get(eventType);
+        users.remove(listener);
+    }
+    
+    public void notify(String eventType, File file) {
+        List<EventListener> users = this.listeners.get(eventType);
+        for (EventListener listener : users) {
+            listener.update(eventType, file);
+        }
+    }
+}
+```
+
+上下文：
+
+```java
+public class Editor {
+    
+    public EventManager events;
+    
+    private File file;
+
+    public Editor() {
+        this.events = new EventManager("open", "save");
+    }
+    
+    public void openFile(String filePath) {
+        this.file = new File(filePath);
+        this.events.notify("open", this.file);
+    }
+    
+    public void saveFile() {
+        if (this.file != null) {
+            this.events.notify("save", this.file);
+        } else {
+            throw new RuntimeException("Please open a file first.");
+        }
+    }
+}
+```
+
+测试客户端：
+
+```java
+public class ObserverTestClient {
+    public static void main(String[] args) {
+        Editor editor = new Editor();
+        editor.events.subscribe("open", new LogOpenListener("E:\\...\\src\\main\\java\\io\\naivekyo\\behavioral\\Observer\\file.txt"));
+        editor.events.subscribe("save", new EmailNotificationListener("xxx@xxx.com"));
+        
+        editor.openFile("E:\\...\\src\\main\\java\\io\\naivekyo\\behavioral\\Observer\\test.txt");
+        editor.saveFile();
+    }
+}
+```
+
+预期输出：
+
+```
+Save to log E:\src\main\java\io\naivekyo\behavioral\Observer\file.txt: Some has performed open
+Email to xxx@xxx.com: Some has performed save
+```
+
+## State
+
+状态模式是一种行为型设计模式，让你能够在一个对象的内部状态发生变化时改变其行为，使其看上去就像改变了自身所属的类一样。
+
+### Problem
+
+状态模式与 [**有限状态机**](https://en.wikipedia.org/wiki/Finite-state_machine) 的概念紧密相关。其主要思想是程序在任意时刻仅可处于几种有限的状态中。在任何一个特定状态中，程序的行为都不相同，且可瞬间从一个状态切换到另一个状态。不过，根据当前状态，程序可能会切换到另外一种状态，也可能会保持当前状态不变。这些数量有限且预先定义的状态切换规则被称为 **转移**。
+
+可以类比写博客时文档的状态，一个文档可能会处于三种状态下：草稿、审阅中、发布。在不同的状态下文档的发布行为也不同。
+
+- 处于 `草稿` 状态时，它会将文档转移到审阅中状态；
+- 处于 `审阅中` 状态时，如果当前用户是管理员，它会公开发布文档；
+- 处于 `已发布` 状态时，它不会进行任何操作。
+
+状态机通常由众多条件运算符（ if 或 switch ）实现，可根据对象的当前状态选择相应的行为。“状态”通常只是对象中的一组成员变量值。 即使你之前从未听说过有限状态机，你也很可能已经实现过状态模式。
+
+```java
+public class Document {
+    private volatile String state;
+    
+    // ... 
+    
+    public void publish() {
+        switch (state) {
+            case "draft":
+                this.state = "moderation";
+                break;
+            case "moderation":
+                if (currentUser.role == "admin")
+                    state = "published";
+                break;
+            case "published":
+                // noop
+                break;
+        }
+    }
+    
+    // ...
+}
+```
+
+当我们逐步在文档类中添加更多状态和依赖于状态的行为后，基于条件语句的状态机就会暴露其最大的弱点。为了能根据当前状态选择完成相应行为的方法，绝大部分方法中会包含复杂的条件语句。修改其转换逻辑可能会涉及到修改所有方法中的状态条件语句，导致代码的维护工作非常艰难。
+
+这个问题会随着项目进行变得越发严重。我们很难在设计阶段预测到所有可能的状态和转换。随着时间推移，最初仅包含有限条件语句的简洁状态机可能会变成臃肿的一团乱麻。
